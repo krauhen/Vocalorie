@@ -19,6 +19,8 @@ class NutritionPromptContractTest {
         assertTrue(promptSource.contains("item values only"))
         assertTrue(promptSource.contains("combine the photo with the full text query"))
         assertTrue(promptSource.contains("Use that amount together with the image."))
+        assertTrue(promptSource.contains("German decimal commas"))
+        assertTrue(promptSource.contains("Reply in the same language as the user's text query"))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
         assertTrue(promptSource.contains("Estimate this meal from the attached photo"))
         assertTrue(promptSource.contains("imageAttachments.forEach { image(it.image) }"))

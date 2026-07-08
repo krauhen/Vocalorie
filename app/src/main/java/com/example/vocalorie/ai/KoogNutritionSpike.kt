@@ -37,6 +37,9 @@ object KoogNutritionSpike {
         Do not return calories without macros and the nutrition-label fields.
         Prefer concrete food-entry source URLs over generic database homepages; if you only have a homepage like https://fdc.nal.usda.gov/, leave source blank.
         Always mark needsHumanReview as true.
+        The user may write the query in German, including German decimal commas like 1,5 and German units such as EL (tablespoon), TL (teaspoon), Stück (piece), Scheibe (slice), Prise (pinch), and Portion (portion); interpret these the same as their English equivalents when estimating amountGml.
+        Recognize German food names and descriptions directly without needing to translate them first.
+        Reply in the same language as the user's text query for quantity, reasoning, assumptions, and warnings: German query in, German text out; English query in, English text out.
         """.trimIndent()
 
     val REQUIRED_SYSTEM_PROMPT_PHRASES: List<String> = listOf(
@@ -47,6 +50,8 @@ object KoogNutritionSpike {
         "Meal totals are computed by the app from item rows",
         "item values only",
         "combine the photo with the full text query",
+        "German decimal commas",
+        "Reply in the same language as the user's text query",
     )
 
     fun missingRequiredSystemPromptPhrases(prompt: String): List<String> =
@@ -239,7 +244,7 @@ private fun String.sanitizeForDisplay(): String =
     replace(Regex("sk-[A-Za-z0-9_-]+"), "sk-…redacted…")
         .replace(Regex("Bearer\\s+[A-Za-z0-9._~+/-]+=*"), "Bearer …redacted…")
 
-private fun String.extractAmountHint(): String? = Regex("""(?i)\b(\d+(?:[.,]\d+)?)\s*(g|gram|grams|ml|mL|kg|l)\b""")
+private fun String.extractAmountHint(): String? = Regex("""(?i)\b(\d+(?:[.,]\d+)?)\s*(g|gram|grams|ml|mL|kg|l|el|tl|stück|stueck|scheibe[n]?|prise[n]?|portion(?:en)?)\b""")
     .find(this)
     ?.let { match ->
         val value = match.groupValues[1].replace(',', '.')
