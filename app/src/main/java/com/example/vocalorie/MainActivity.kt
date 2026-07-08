@@ -9,7 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.vocalorie.ui.SpikeScreen
+import com.example.vocalorie.ui.MealCaptureScreen
 import com.example.vocalorie.ui.VocalorieTheme
 
 class MainActivity : ComponentActivity() {
@@ -27,7 +27,7 @@ fun VocalorieApp() {
             color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground,
         ) {
-            SpikeScreen()
+            MealCaptureScreen()
         }
     }
 }

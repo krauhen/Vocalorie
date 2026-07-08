@@ -5,9 +5,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-@SerialName("NutritionSpikeResult")
+@SerialName("NutritionAgentResult")
 @LLMDescription("A structured nutrition estimate that must be reviewed by a human before saving.")
-data class NutritionSpikeResult(
+data class NutritionAgentResult(
     @property:LLMDescription("The original user food query.")
     val query: String,
     val items: List<FoodItemEstimate>,
@@ -20,7 +20,7 @@ data class NutritionSpikeResult(
     val warnings: List<String>,
     @property:LLMDescription("Overall confidence in the estimate.")
     val confidence: ConfidenceLevel,
-    @property:LLMDescription("Always true for this spike because nutrition estimates require human review.")
+    @property:LLMDescription("Always true because nutrition estimates require human review.")
     val needsHumanReview: Boolean,
 )
 

@@ -38,7 +38,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.example.vocalorie.ai.KoogNutritionSpike
+import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.settings.OpenAiModelChoice
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.settings.ToolSettingsLabels
@@ -122,7 +122,7 @@ private fun SettingsContent(
     var showModelDialog by remember { mutableStateOf(false) }
     var pendingModelName by rememberSaveable(toolSettings.openAiModelChoiceName) { mutableStateOf(toolSettings.openAiModelChoiceName) }
     var systemPromptInput by remember(toolSettings.systemPromptOverride) {
-        mutableStateOf(toolSettings.systemPromptOverride ?: KoogNutritionSpike.DEFAULT_SYSTEM_PROMPT)
+        mutableStateOf(toolSettings.systemPromptOverride ?: KoogNutritionAgent.DEFAULT_SYSTEM_PROMPT)
     }
 
     LaunchedEffect(toolSettings.maxResearchToolCalls) {
@@ -305,7 +305,7 @@ private fun SettingsContent(
                 OutlinedButton(
                     onClick = {
                         onResetSystemPrompt()
-                        systemPromptInput = KoogNutritionSpike.DEFAULT_SYSTEM_PROMPT
+                        systemPromptInput = KoogNutritionAgent.DEFAULT_SYSTEM_PROMPT
                     },
                     enabled = enabled,
                 ) { Text("Reset to default") }

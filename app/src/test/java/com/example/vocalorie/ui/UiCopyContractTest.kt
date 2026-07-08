@@ -74,11 +74,11 @@ class UiCopyContractTest {
     }
 
     @Test
-    fun spikeScreenStartsWithEmptyMealText() {
-        val spikeScreen = source("app/src/main/java/com/example/vocalorie/ui/SpikeScreen.kt")
+    fun mealCaptureScreenStartsWithEmptyMealText() {
+        val mealCaptureScreen = source("app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt")
 
-        assertTrue(spikeScreen.contains("mutableStateOf(\"\")"))
-        assertFalse(spikeScreen.contains("Estimate calories and macros for 2 eggs and 1 banana"))
+        assertTrue(mealCaptureScreen.contains("mutableStateOf(\"\")"))
+        assertFalse(mealCaptureScreen.contains("Estimate calories and macros for 2 eggs and 1 banana"))
     }
 
     @Test
@@ -123,7 +123,7 @@ class UiCopyContractTest {
 
     @Test
     fun newMealEstimateExposesResetActionThatClearsTransientDraftState() {
-        val spikeScreen = source("app/src/main/java/com/example/vocalorie/ui/SpikeScreen.kt")
+        val mealCaptureScreen = source("app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt")
         val voiceInputOverlay = source("app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt")
 
         assertTrue(voiceInputOverlay.contains("onReset: () -> Unit"))
@@ -135,22 +135,22 @@ class UiCopyContractTest {
         assertTrue(voiceInputOverlay.contains("Text(if (error == null) \"Estimate\" else \"Retry\")"))
         assertTrue(voiceInputOverlay.contains("Text(\"Photo\")"))
         assertTrue(voiceInputOverlay.contains("query.isNotBlank() || draft != null || attachedImages.isNotEmpty()"))
-        assertTrue(spikeScreen.contains("fun resetNewMealEstimate()"))
-        assertTrue(spikeScreen.contains("query = \"\""))
-        assertTrue(spikeScreen.contains("draft = null"))
-        assertTrue(spikeScreen.contains("error = null"))
-        assertTrue(spikeScreen.contains("diagnostic = null"))
-        assertTrue(spikeScreen.contains("saveMessage = null"))
-        assertTrue(spikeScreen.contains("attachedImages = emptyList()"))
-        assertTrue(spikeScreen.contains("resetSignal += 1"))
-        assertTrue(spikeScreen.contains("onReset = { resetNewMealEstimate() }"))
+        assertTrue(mealCaptureScreen.contains("fun resetNewMealEstimate()"))
+        assertTrue(mealCaptureScreen.contains("query = \"\""))
+        assertTrue(mealCaptureScreen.contains("draft = null"))
+        assertTrue(mealCaptureScreen.contains("error = null"))
+        assertTrue(mealCaptureScreen.contains("diagnostic = null"))
+        assertTrue(mealCaptureScreen.contains("saveMessage = null"))
+        assertTrue(mealCaptureScreen.contains("attachedImages = emptyList()"))
+        assertTrue(mealCaptureScreen.contains("resetSignal += 1"))
+        assertTrue(mealCaptureScreen.contains("onReset = { resetNewMealEstimate() }"))
     }
 
     @Test
-    fun mealEntriesAndSpikeUiDoNotShowTheOldTapAnEntryHelperSentence() {
+    fun mealEntriesAndMealCaptureUiDoNotShowTheOldTapAnEntryHelperSentence() {
         val sources = listOf(
             "app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt",
-            "app/src/main/java/com/example/vocalorie/ui/SpikeScreen.kt",
+            "app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt",
             "app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt",
         ).joinToString("\n") { source(it) }
 

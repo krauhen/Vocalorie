@@ -4,7 +4,7 @@ import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.FoodItemEstimate
-import com.example.vocalorie.model.NutritionSpikeResult
+import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.model.withTotalsSummedFromItems
@@ -17,7 +17,7 @@ import java.math.RoundingMode
 private val mealJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 private val foodItemListSerializer = ListSerializer(FoodItemEstimate.serializer())
 
-fun NutritionSpikeResult.toEditableDraft(): EditableMealDraft = EditableMealDraft(
+fun NutritionAgentResult.toEditableDraft(): EditableMealDraft = EditableMealDraft(
     title = query.toShortMealTitle(items),
     query = query,
     items = items.map { it.toEditableFoodItem() },

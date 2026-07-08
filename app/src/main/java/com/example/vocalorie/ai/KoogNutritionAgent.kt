@@ -12,7 +12,7 @@ import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.structure.json.JsonStructure
 import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.FoodItemEstimate
-import com.example.vocalorie.model.NutritionSpikeResult
+import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.settings.OpenAiModelChoice
 import com.example.vocalorie.settings.ToolSettings
@@ -21,7 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
-object KoogNutritionSpike {
+object KoogNutritionAgent {
     val DEFAULT_SYSTEM_PROMPT: String = """
         You are Vocalorie's nutrition extraction helper.
         Estimate calories, approximate amount in g/ml, and nutrition-label values from the user's meal.
@@ -62,7 +62,7 @@ object KoogNutritionSpike {
         query: String,
         toolSettings: ToolSettings = ToolSettings(),
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
-    ): NutritionSpikeResult = withContext(Dispatchers.IO) {
+    ): NutritionAgentResult = withContext(Dispatchers.IO) {
         val trimmedKey = openAiApiKey.trim()
         val trimmedQuery = query.trim()
 
@@ -70,7 +70,7 @@ object KoogNutritionSpike {
         require(trimmedQuery.isNotEmpty()) { "Enter a nutrition query." }
 
         runCatching { runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments) }
-            .getOrElse { throwable -> throw NutritionSpikeException(throwable.toUserMessage(), throwable.toDiagnosticString(), throwable) }
+            .getOrElse { throwable -> throw NutritionAgentException(throwable.toUserMessage(), throwable.toDiagnosticString(), throwable) }
     }
 
     private suspend fun runKoog(
@@ -78,14 +78,14 @@ object KoogNutritionSpike {
         query: String,
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
-    ): NutritionSpikeResult {
+    ): NutritionAgentResult {
         val model = when (toolSettings.openAiModelChoice) {
             OpenAiModelChoice.GPT4O -> OpenAIModels.Chat.GPT4o
             OpenAiModelChoice.GPT4OMINI -> OpenAIModels.Chat.GPT4oMini
             OpenAiModelChoice.GPT41MINI -> OpenAIModels.Chat.GPT4_1Mini
             OpenAiModelChoice.GPT54MINI -> OpenAIModels.Chat.GPT5_4Mini
         }
-        val outputStructure = JsonStructure.create<NutritionSpikeResult>(
+        val outputStructure = JsonStructure.create<NutritionAgentResult>(
             schemaGenerator = OpenAIBasicJsonSchemaGenerator,
             examples = listOf(sampleResult(query), sampleCucumberResult(query)),
         )
@@ -96,7 +96,7 @@ object KoogNutritionSpike {
             ),
         )
         val effectiveSystemPrompt = toolSettings.systemPromptOverride?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_PROMPT
-        val prompt = prompt("vocalorie-nutrition-spike", params = LLMParams(schema = outputStructure.schema)) {
+        val prompt = prompt("vocalorie-nutrition-estimate", params = LLMParams(schema = outputStructure.schema)) {
             system(effectiveSystemPrompt)
             user {
                 val amountHint = query.extractAmountHint()?.let { "Amount hint from the description: $it." }.orEmpty()
@@ -127,7 +127,7 @@ object KoogNutritionSpike {
         return outputStructure.parse(responseText)
     }
 
-    private fun sampleResult(query: String) = NutritionSpikeResult(
+    private fun sampleResult(query: String) = NutritionAgentResult(
         query = query,
         items = listOf(
             FoodItemEstimate(
@@ -162,7 +162,7 @@ object KoogNutritionSpike {
         needsHumanReview = true,
     )
 
-    private fun sampleCucumberResult(query: String) = NutritionSpikeResult(
+    private fun sampleCucumberResult(query: String) = NutritionAgentResult(
         query = query,
         items = listOf(
             FoodItemEstimate(
@@ -198,14 +198,14 @@ object KoogNutritionSpike {
     )
 }
 
-class NutritionSpikeException(
+class NutritionAgentException(
     message: String,
     val diagnostic: String,
     cause: Throwable,
 ) : Exception(message, cause)
 
 @Serializable
-private data class NutritionSpikeRequest(val query: String)
+private data class NutritionAgentRequest(val query: String)
 
 private fun Throwable.toUserMessage(): String {
     val raw = message.orEmpty()
@@ -227,7 +227,7 @@ private fun Throwable.toUserMessage(): String {
         raw.contains("Koog", ignoreCase = true) || raw.contains("agent", ignoreCase = true) ->
             "Koog setup or agent execution failed."
 
-        else -> raw.ifBlank { "Koog nutrition spike failed." }
+        else -> raw.ifBlank { "Koog nutrition estimate failed." }
     }
 }
 

@@ -10,7 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class KoogNutritionSpikeLiveHarnessTest {
+class KoogNutritionAgentLiveHarnessTest {
     @Test
     fun liveOpenAiEstimateFor100gPickleImage() = runBlocking {
         val apiKey = loadOpenAiApiKey()
@@ -25,7 +25,7 @@ class KoogNutritionSpikeLiveHarnessTest {
             ),
         )
 
-        val result = KoogNutritionSpike.estimate(
+        val result = KoogNutritionAgent.estimate(
             openAiApiKey = apiKey,
             query = QUERY,
             toolSettings = ToolSettings(),
@@ -51,7 +51,7 @@ class KoogNutritionSpikeLiveHarnessTest {
         }
     }
 
-    private fun printEstimate(result: com.example.vocalorie.model.NutritionSpikeResult) {
+    private fun printEstimate(result: com.example.vocalorie.model.NutritionAgentResult) {
         println(
             buildString {
                 appendLine("query=${result.query}")

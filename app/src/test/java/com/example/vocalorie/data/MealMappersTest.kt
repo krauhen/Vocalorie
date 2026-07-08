@@ -2,7 +2,7 @@ package com.example.vocalorie.data
 
 import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.FoodItemEstimate
-import com.example.vocalorie.model.NutritionSpikeResult
+import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -61,7 +61,7 @@ class MealMappersTest {
     }
 
     @Test
-    fun spikeResultBecomesEditableDraft() {
+    fun agentResultBecomesEditableDraft() {
         val draft = sampleResult().copy(
             totals = NutritionTotals(
                 caloriesKcal = 999.0,
@@ -334,7 +334,7 @@ class MealMappersTest {
         assertEquals(listOf(1L), matches.map { it.id })
     }
 
-    private fun sampleResult() = NutritionSpikeResult(
+    private fun sampleResult() = NutritionAgentResult(
         query = "2 eggs",
         items = listOf(
             FoodItemEstimate(

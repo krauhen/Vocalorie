@@ -8,7 +8,7 @@ import org.junit.Test
 class NutritionPromptContractTest {
     @Test
     fun promptRequiresMacrosAndRealImageInputWheneverCaloriesAreEstimated() {
-        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionSpike.kt")
+        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionAgent.kt")
         val dtoSource = source("app/src/main/java/com/example/vocalorie/model/NutritionEstimateDtos.kt")
 
         assertTrue(promptSource.contains("protein, carbohydrates, and fat"))
@@ -65,11 +65,11 @@ class NutritionPromptContractTest {
 
     @Test
     fun koogPromptUsesStructuredJsonSchemaAndInlineImageAttachment() {
-        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionSpike.kt")
+        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionAgent.kt")
 
         assertTrue(promptSource.contains("GPT54MINI"))
         assertTrue(promptSource.contains("GPT5_4Mini"))
-        assertTrue(promptSource.contains("prompt(\"vocalorie-nutrition-spike\""))
+        assertTrue(promptSource.contains("prompt(\"vocalorie-nutrition-estimate\""))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
         assertTrue(promptSource.contains("image(it.image)"))
     }

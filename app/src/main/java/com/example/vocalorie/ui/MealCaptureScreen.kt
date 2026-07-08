@@ -12,8 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.vocalorie.BuildConfig
-import com.example.vocalorie.ai.KoogNutritionSpike
-import com.example.vocalorie.ai.NutritionSpikeException
+import com.example.vocalorie.ai.KoogNutritionAgent
+import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.data.CachedMealMatch
 import com.example.vocalorie.data.findCachedMealMatch
 import com.example.vocalorie.data.VocalorieDatabase
@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SpikeScreen(modifier: Modifier = Modifier) {
+fun MealCaptureScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val dao = remember { VocalorieDatabase.get(context).mealDao() }
     val apiKeyStore = remember { OpenAiApiKeyStore(context) }
@@ -102,13 +102,13 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                 }
                 refreshSavedKeyLabel()
                 val settingsForEstimate = refreshToolSettings()
-                draft = KoogNutritionSpike.estimate(
+                draft = KoogNutritionAgent.estimate(
                     openAiApiKey = keyForEstimate,
                     query = request.requestQuery,
                     toolSettings = settingsForEstimate,
                     imageAttachments = request.imageAttachments,
                 ).toEditableDraft().copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
-            } catch (throwable: NutritionSpikeException) {
+            } catch (throwable: NutritionAgentException) {
                 error = throwable.message ?: "Koog nutrition estimate failed."
                 diagnostic = throwable.diagnostic
             } catch (throwable: Throwable) {
@@ -197,7 +197,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
             },
             onSaveSystemPrompt = { newPrompt ->
                 settingsMessage = null
-                val missing = KoogNutritionSpike.missingRequiredSystemPromptPhrases(newPrompt)
+                val missing = KoogNutritionAgent.missingRequiredSystemPromptPhrases(newPrompt)
                 runCatching { toolSettingsStore.saveSystemPromptOverride(newPrompt) }
                     .onSuccess {
                         refreshToolSettings()
