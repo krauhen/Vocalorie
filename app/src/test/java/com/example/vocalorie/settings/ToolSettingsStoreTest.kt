@@ -43,6 +43,26 @@ class ToolSettingsStoreTest {
         assertThrows(IllegalArgumentException::class.java) { store.saveMaxAgentIterations(129) }
     }
 
+    @Test
+    fun systemPromptOverridePersistsAndClearsThroughTheStore() {
+        val store = ToolSettingsStore(testContext(InMemorySharedPreferences()))
+
+        assertEquals(null, store.get().systemPromptOverride)
+
+        store.saveSystemPromptOverride("Custom nutrition prompt.")
+        assertEquals("Custom nutrition prompt.", store.get().systemPromptOverride)
+
+        store.clearSystemPromptOverride()
+        assertEquals(null, store.get().systemPromptOverride)
+    }
+
+    @Test
+    fun systemPromptOverrideRejectsBlankValues() {
+        val store = ToolSettingsStore(testContext(InMemorySharedPreferences()))
+
+        assertThrows(IllegalArgumentException::class.java) { store.saveSystemPromptOverride("   ") }
+    }
+
     private fun testContext(prefs: SharedPreferences): Context = object : Application() {
         override fun getApplicationContext(): Context = this
 

@@ -10,14 +10,19 @@ import android.speech.SpeechRecognizer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
@@ -30,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,7 +44,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -64,7 +74,7 @@ fun VoiceInputOverlay(
     error: String?,
     diagnostic: String?,
     saveMessage: String?,
-    attachedImageLabel: String?,
+    attachedImages: List<GalleryImageAttachment>,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     searchResults: List<SavedMeal>,
@@ -72,7 +82,7 @@ fun VoiceInputOverlay(
     resetSignal: Int,
     onEstimate: () -> Unit,
     onReset: () -> Unit,
-    onPickImage: (GalleryImageAttachment?) -> Unit,
+    onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -106,7 +116,7 @@ fun VoiceInputOverlay(
                 error = error,
                 diagnostic = diagnostic,
                 saveMessage = saveMessage,
-                attachedImageLabel = attachedImageLabel,
+                attachedImages = attachedImages,
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange,
                 searchResults = searchResults,
@@ -114,7 +124,7 @@ fun VoiceInputOverlay(
                 resetSignal = resetSignal,
                 onEstimate = onEstimate,
                 onReset = onReset,
-                onPickImage = onPickImage,
+                onImagesChange = onImagesChange,
                 onSave = onSave,
                 enabled = !isLoading && !isSaving,
             )
@@ -133,7 +143,7 @@ private fun VoiceSheetContent(
     error: String?,
     diagnostic: String?,
     saveMessage: String?,
-    attachedImageLabel: String?,
+    attachedImages: List<GalleryImageAttachment>,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     searchResults: List<SavedMeal>,
@@ -141,11 +151,11 @@ private fun VoiceSheetContent(
     resetSignal: Int,
     onEstimate: () -> Unit,
     onReset: () -> Unit,
-    onPickImage: (GalleryImageAttachment?) -> Unit,
+    onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
     enabled: Boolean,
 ) {
-    val canReset = query.isNotBlank() || draft != null || attachedImageLabel != null
+    val canReset = query.isNotBlank() || draft != null || attachedImages.isNotEmpty()
     val canSave = draft != null
 
     Column(
@@ -202,7 +212,14 @@ private fun VoiceSheetContent(
                 }
             }
         }
-        SpeechInputControls(query = query, enabled = enabled, onTranscript = onQueryChange, onPickImage = onPickImage, resetSignal = resetSignal)
+        SpeechInputControls(
+            query = query,
+            enabled = enabled,
+            onTranscript = onQueryChange,
+            attachedImages = attachedImages,
+            onImagesChange = onImagesChange,
+            resetSignal = resetSignal,
+        )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = onEstimate, enabled = enabled, modifier = Modifier.weight(1f)) {
                 Text(if (error == null) "Estimate" else "Retry")
@@ -214,8 +231,19 @@ private fun VoiceSheetContent(
                 Text("Save entry")
             }
         }
-        attachedImageLabel?.let {
-            Text("Photo: $it", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        if (attachedImages.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                attachedImages.forEach { attachment ->
+                    attachment.previewImage?.let { preview ->
+                        AttachedImageThumbnail(
+                            label = attachment.label,
+                            image = preview,
+                            enabled = enabled,
+                            onRemove = { onImagesChange(attachedImages - attachment) },
+                        )
+                    }
+                }
+            }
         }
         if (isLoading) LoadingRow("Estimating…")
         if (isSaving) LoadingRow("Saving locally…")
@@ -234,11 +262,43 @@ private fun VoiceSheetContent(
 }
 
 @Composable
+private fun AttachedImageThumbnail(
+    label: String,
+    image: ImageBitmap,
+    enabled: Boolean,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier.size(72.dp)) {
+        Image(
+            bitmap = image,
+            contentDescription = label,
+            modifier = Modifier.matchParentSize().clip(RoundedCornerShape(10.dp)),
+            contentScale = ContentScale.Crop,
+        )
+        Surface(
+            onClick = onRemove,
+            enabled = enabled,
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp).size(22.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp,
+            shadowElevation = 4.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                Text("✕", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+    }
+}
+
+@Composable
 private fun SpeechInputControls(
     query: String,
     enabled: Boolean,
     onTranscript: (String) -> Unit,
-    onPickImage: (GalleryImageAttachment?) -> Unit,
+    attachedImages: List<GalleryImageAttachment>,
+    onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     resetSignal: Int,
 ) {
     val context = LocalContext.current
@@ -259,13 +319,21 @@ private fun SpeechInputControls(
             voiceMessage = "Microphone permission denied."
         }
     }
-    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri == null) {
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(MAX_IMAGE_ATTACHMENTS),
+    ) { uris ->
+        if (uris.isEmpty()) {
             voiceMessage = "No photo selected."
         } else {
-            val attachment = context.toGalleryImageAttachment(uri)
-            onPickImage(attachment)
-            voiceMessage = "Photo attached: ${attachment.label}"
+            val newAttachments = uris.map { context.toGalleryImageAttachment(it) }
+            val merged = (attachedImages + newAttachments).take(MAX_IMAGE_ATTACHMENTS)
+            onImagesChange(merged)
+            val droppedCount = attachedImages.size + newAttachments.size - merged.size
+            voiceMessage = if (droppedCount > 0) {
+                "Attached ${merged.size - attachedImages.size} photo(s); $droppedCount dropped, max $MAX_IMAGE_ATTACHMENTS photos."
+            } else {
+                "Photo(s) attached: ${newAttachments.joinToString(", ") { it.label }}"
+            }
         }
     }
 
@@ -361,7 +429,7 @@ private fun SpeechInputControls(
     }
 
     fun pickImage() {
-        if (!enabled) return
+        if (!enabled || attachedImages.size >= MAX_IMAGE_ATTACHMENTS) return
         imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
@@ -396,7 +464,11 @@ private fun SpeechInputControls(
             ) {
                 Text(if (keepListening) "Stop" else "Voice")
             }
-            OutlinedButton(onClick = { pickImage() }, enabled = enabled, modifier = Modifier.weight(1f)) {
+            OutlinedButton(
+                onClick = { pickImage() },
+                enabled = enabled && attachedImages.size < MAX_IMAGE_ATTACHMENTS,
+                modifier = Modifier.weight(1f),
+            ) {
                 Text("Photo")
             }
         }

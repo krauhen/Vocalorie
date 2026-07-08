@@ -35,6 +35,9 @@ data class MealNutritionStats(
     val carbsG: Double,
     val fatG: Double,
     val amountGml: Double,
+    val saturatedFatG: Double,
+    val sugarG: Double,
+    val saltG: Double,
 )
 
 enum class MealStatsWindowMode {
@@ -192,7 +195,7 @@ fun formatRollingStatsLabel(duration: Duration): String {
     return "Last $durationLabel"
 }
 
-private fun List<SavedMeal>.sumNutrition(): MealNutritionStats = fold(MealNutritionStats(0.0, 0.0, 0.0, 0.0, 0.0)) { acc, meal ->
+private fun List<SavedMeal>.sumNutrition(): MealNutritionStats = fold(MealNutritionStats(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) { acc, meal ->
     val totals: NutritionTotals = meal.totals
     acc.copy(
         caloriesKcal = acc.caloriesKcal + (totals.caloriesKcal ?: 0.0),
@@ -200,6 +203,9 @@ private fun List<SavedMeal>.sumNutrition(): MealNutritionStats = fold(MealNutrit
         carbsG = acc.carbsG + (totals.carbsG ?: 0.0),
         fatG = acc.fatG + (totals.fatG ?: 0.0),
         amountGml = acc.amountGml + (totals.amountGml ?: 0.0),
+        saturatedFatG = acc.saturatedFatG + (totals.saturatedFatG ?: 0.0),
+        sugarG = acc.sugarG + (totals.sugarG ?: 0.0),
+        saltG = acc.saltG + (totals.saltG ?: 0.0),
     )
 }
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -25,10 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
@@ -90,32 +89,37 @@ fun mealCalorieBucket(caloriesKcal: Double?): MealCalorieBucket = when {
 }
 
 @Composable
-fun mealCalorieStateStyle(caloriesKcal: Double?): MealStateStyle = when (mealCalorieBucket(caloriesKcal)) {
-    MealCalorieBucket.NEUTRAL -> MealStateStyle(
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
-    )
-    MealCalorieBucket.CREAM_YELLOW -> MealStateStyle(
-        containerColor = Color(0xFFFFF8E1),
-        contentColor = Color(0xFF1F1300),
-        borderColor = Color(0xFFFFCC33),
-    )
-    MealCalorieBucket.SOFT_YELLOW -> MealStateStyle(
-        containerColor = Color(0xFFFFF1B8),
-        contentColor = Color(0xFF1F1300),
-        borderColor = Color(0xFFFFB600),
-    )
-    MealCalorieBucket.ORANGE -> MealStateStyle(
-        containerColor = Color(0xFFFFE2B0),
-        contentColor = Color(0xFF1F1300),
-        borderColor = Color(0xFFFF9500),
-    )
-    MealCalorieBucket.DEEP_ORANGE -> MealStateStyle(
-        containerColor = Color(0xFFF77605),
-        contentColor = Color(0xFF1F1300),
-        borderColor = Color(0xFFB84A00),
-    )
+fun mealCalorieStateStyle(caloriesKcal: Double?): MealStateStyle {
+    val primary = MaterialTheme.colorScheme.primary
+    val surface = MaterialTheme.colorScheme.surface
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    return when (mealCalorieBucket(caloriesKcal)) {
+        MealCalorieBucket.NEUTRAL -> MealStateStyle(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = onSurface,
+            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+        )
+        MealCalorieBucket.CREAM_YELLOW -> MealStateStyle(
+            containerColor = primary.copy(alpha = 0.28f).compositeOver(surface),
+            contentColor = onSurface,
+            borderColor = primary.copy(alpha = 0.55f),
+        )
+        MealCalorieBucket.SOFT_YELLOW -> MealStateStyle(
+            containerColor = primary.copy(alpha = 0.48f).compositeOver(surface),
+            contentColor = onSurface,
+            borderColor = primary.copy(alpha = 0.75f),
+        )
+        MealCalorieBucket.ORANGE -> MealStateStyle(
+            containerColor = primary.copy(alpha = 0.72f).compositeOver(surface),
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            borderColor = primary,
+        )
+        MealCalorieBucket.DEEP_ORANGE -> MealStateStyle(
+            containerColor = primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            borderColor = MaterialTheme.colorScheme.primaryContainer,
+        )
+    }
 }
 
 @Composable
@@ -180,15 +184,8 @@ fun LoadingRow(message: String? = null) {
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.18f)),
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(message ?: "Working${".".repeat(dotCount)}")
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CircularProgressIndicator(modifier = Modifier.padding(top = 1.dp), strokeWidth = 2.5.dp)
-                Text(message ?: "Working${".".repeat(dotCount)}", modifier = Modifier.weight(1f))
-            }
         }
     }
 }

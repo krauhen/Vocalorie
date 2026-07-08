@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,10 +32,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.vocalorie.ai.KoogNutritionSpike
 import com.example.vocalorie.settings.OpenAiModelChoice
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.settings.ToolSettingsLabels
@@ -57,6 +61,8 @@ fun SettingsScreen(
     onSaveMaxResearchToolCalls: (String) -> Unit,
     onSaveMaxAgentIterations: (String) -> Unit,
     onSaveOpenAiModelChoice: (String) -> Unit,
+    onSaveSystemPrompt: (String) -> Unit,
+    onResetSystemPrompt: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -83,6 +89,8 @@ fun SettingsScreen(
             onSaveMaxResearchToolCalls = onSaveMaxResearchToolCalls,
             onSaveMaxAgentIterations = onSaveMaxAgentIterations,
             onSaveOpenAiModelChoice = onSaveOpenAiModelChoice,
+            onSaveSystemPrompt = onSaveSystemPrompt,
+            onResetSystemPrompt = onResetSystemPrompt,
         )
     }
 }
@@ -104,6 +112,8 @@ private fun SettingsContent(
     onSaveMaxResearchToolCalls: (String) -> Unit,
     onSaveMaxAgentIterations: (String) -> Unit,
     onSaveOpenAiModelChoice: (String) -> Unit,
+    onSaveSystemPrompt: (String) -> Unit,
+    onResetSystemPrompt: () -> Unit,
 ) {
     var newApiKey by remember { mutableStateOf("") }
     var newBraveApiKey by remember { mutableStateOf("") }
@@ -111,6 +121,9 @@ private fun SettingsContent(
     var maxAgentIterationsInput by remember { mutableStateOf(toolSettings.maxAgentIterations.toString()) }
     var showModelDialog by remember { mutableStateOf(false) }
     var pendingModelName by rememberSaveable(toolSettings.openAiModelChoiceName) { mutableStateOf(toolSettings.openAiModelChoiceName) }
+    var systemPromptInput by remember(toolSettings.systemPromptOverride) {
+        mutableStateOf(toolSettings.systemPromptOverride ?: KoogNutritionSpike.DEFAULT_SYSTEM_PROMPT)
+    }
 
     LaunchedEffect(toolSettings.maxResearchToolCalls) {
         maxResearchToolCallsInput = toolSettings.maxResearchToolCalls.toString()
@@ -265,6 +278,37 @@ private fun SettingsContent(
                     enabled = enabled && newBraveApiKey.isNotBlank(),
                 ) { Text(if (braveKeyLabel == null) "Save Brave key" else "Update Brave key") }
                 OutlinedButton(onClick = onClearBraveKey, enabled = enabled && braveKeyLabel != null) { Text("Remove") }
+            }
+        }
+
+        SectionTitle("Prompt")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            ListItem(
+                headlineContent = { Text("System prompt") },
+                supportingContent = { Text("Instructions sent to the AI model before every meal estimate.") },
+            )
+            OutlinedTextField(
+                value = systemPromptInput,
+                onValueChange = { systemPromptInput = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 220.dp),
+                label = { Text("System prompt") },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.None,
+                    autoCorrectEnabled = false,
+                    keyboardType = KeyboardType.Text,
+                ),
+                enabled = enabled,
+            )
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { onSaveSystemPrompt(systemPromptInput) }, enabled = enabled) { Text("Save prompt") }
+                OutlinedButton(
+                    onClick = {
+                        onResetSystemPrompt()
+                        systemPromptInput = KoogNutritionSpike.DEFAULT_SYSTEM_PROMPT
+                    },
+                    enabled = enabled,
+                ) { Text("Reset to default") }
             }
         }
 

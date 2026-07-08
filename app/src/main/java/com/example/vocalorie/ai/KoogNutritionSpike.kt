@@ -22,11 +22,41 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 object KoogNutritionSpike {
+    val DEFAULT_SYSTEM_PROMPT: String = """
+        You are Vocalorie's nutrition extraction helper.
+        Estimate calories, approximate amount in g/ml, and nutrition-label values from the user's meal.
+        This is a human-reviewed estimate, not authoritative nutrition data.
+        Return strict JSON matching the requested schema.
+        Every calorie estimate must include approximate amount in g/ml.
+        When one or more images are attached, combine the photo with the full text query, including any amount like 200g, as one estimate.
+        If the user text includes an amount like 100g, copy that amount into amountGml even when an image is attached.
+        Include protein, carbohydrates, and fat, plus saturated fat, sugar, and salt for each item.
+        Do not omit saturatedFatG, sugarG, or saltG; use 0.0 when the source data or the food itself indicates no meaningful amount.
+        Meal totals are computed by the app from item rows; estimate item values only.
+        Use grams and milliliters as approximately equivalent for amount summing.
+        Do not return calories without macros and the nutrition-label fields.
+        Prefer concrete food-entry source URLs over generic database homepages; if you only have a homepage like https://fdc.nal.usda.gov/, leave source blank.
+        Always mark needsHumanReview as true.
+        """.trimIndent()
+
+    val REQUIRED_SYSTEM_PROMPT_PHRASES: List<String> = listOf(
+        "protein, carbohydrates, and fat",
+        "amount in g/ml",
+        "saturated fat, sugar, and salt",
+        "Do not return calories without",
+        "Meal totals are computed by the app from item rows",
+        "item values only",
+        "combine the photo with the full text query",
+    )
+
+    fun missingRequiredSystemPromptPhrases(prompt: String): List<String> =
+        REQUIRED_SYSTEM_PROMPT_PHRASES.filterNot { prompt.contains(it) }
+
     suspend fun estimate(
         openAiApiKey: String,
         query: String,
         toolSettings: ToolSettings = ToolSettings(),
-        imageAttachment: GalleryImageAttachment? = null,
+        imageAttachments: List<GalleryImageAttachment> = emptyList(),
     ): NutritionSpikeResult = withContext(Dispatchers.IO) {
         val trimmedKey = openAiApiKey.trim()
         val trimmedQuery = query.trim()
@@ -34,7 +64,7 @@ object KoogNutritionSpike {
         require(trimmedKey.isNotEmpty()) { "Enter an OpenAI API key." }
         require(trimmedQuery.isNotEmpty()) { "Enter a nutrition query." }
 
-        runCatching { runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachment) }
+        runCatching { runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments) }
             .getOrElse { throwable -> throw NutritionSpikeException(throwable.toUserMessage(), throwable.toDiagnosticString(), throwable) }
     }
 
@@ -42,7 +72,7 @@ object KoogNutritionSpike {
         openAiApiKey: String,
         query: String,
         toolSettings: ToolSettings,
-        imageAttachment: GalleryImageAttachment? = null,
+        imageAttachments: List<GalleryImageAttachment> = emptyList(),
     ): NutritionSpikeResult {
         val model = when (toolSettings.openAiModelChoice) {
             OpenAiModelChoice.GPT4O -> OpenAIModels.Chat.GPT4o
@@ -60,30 +90,20 @@ object KoogNutritionSpike {
                 httpClientFactory = KtorKoogHttpClient.Factory(),
             ),
         )
+        val effectiveSystemPrompt = toolSettings.systemPromptOverride?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_PROMPT
         val prompt = prompt("vocalorie-nutrition-spike", params = LLMParams(schema = outputStructure.schema)) {
-            system(
-                """
-                You are Vocalorie's nutrition extraction helper.
-                Estimate calories, approximate amount in g/ml, and nutrition-label values from the user's meal.
-                This is a human-reviewed estimate, not authoritative nutrition data.
-                Return strict JSON matching the requested schema.
-                Every calorie estimate must include approximate amount in g/ml.
-                When an image is attached, combine the photo with the full text query, including any amount like 200g, as one estimate.
-                If the user text includes an amount like 100g, copy that amount into amountGml even when an image is attached.
-                Include protein, carbohydrates, and fat, plus saturated fat, sugar, and salt for each item.
-                Do not omit saturatedFatG, sugarG, or saltG; use 0.0 when the source data or the food itself indicates no meaningful amount.
-                Meal totals are computed by the app from item rows; estimate item values only.
-                Use grams and milliliters as approximately equivalent for amount summing.
-                Do not return calories without macros and the nutrition-label fields.
-                Prefer concrete food-entry source URLs over generic database homepages; if you only have a homepage like https://fdc.nal.usda.gov/, leave source blank.
-                Always mark needsHumanReview as true.
-                """.trimIndent(),
-            )
+            system(effectiveSystemPrompt)
             user {
                 val amountHint = query.extractAmountHint()?.let { "Amount hint from the description: $it." }.orEmpty()
                 text(
                     buildString {
-                        append(if (imageAttachment == null) "Estimate this meal: $query" else "Estimate this meal from the attached photo together with the full text query${if (query.isNotBlank()) ": $query" else ""}.")
+                        append(
+                            when {
+                                imageAttachments.isEmpty() -> "Estimate this meal: $query"
+                                imageAttachments.size == 1 -> "Estimate this meal from the attached photo together with the full text query${if (query.isNotBlank()) ": $query" else ""}."
+                                else -> "Estimate this meal from the ${imageAttachments.size} attached photos together with the full text query${if (query.isNotBlank()) ": $query" else ""}."
+                            }
+                        )
                         if (amountHint.isNotBlank()) {
                             append('\n')
                             append(amountHint)
@@ -91,7 +111,7 @@ object KoogNutritionSpike {
                         }
                     }
                 )
-                imageAttachment?.let { image(it.image) }
+                imageAttachments.forEach { image(it.image) }
             }
         }
 

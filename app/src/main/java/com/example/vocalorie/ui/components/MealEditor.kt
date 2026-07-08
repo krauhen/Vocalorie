@@ -317,7 +317,7 @@ private fun ReadOnlyFoodItemCard(item: FoodItemEstimate) {
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(item.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             if (item.quantity.isNotBlank()) {
                 Text(item.quantity, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -325,9 +325,9 @@ private fun ReadOnlyFoodItemCard(item: FoodItemEstimate) {
             NutritionRow("Amount", "${item.amountGml.formatNullable()} g/ml")
             NutritionRow("Energy", item.caloriesKcal.formatEnergy())
             NutritionRow("Fat", "${item.fatG.formatNullable()} g")
-            NutritionRow("of which saturates", "${item.saturatedFatG.formatNullable()} g")
+            NutritionRow("of which saturates", "${item.saturatedFatG.formatNullable()} g", indent = true)
             NutritionRow("Carbohydrate", "${item.carbsG.formatNullable()} g")
-            NutritionRow("of which sugars", "${item.sugarG.formatNullable()} g")
+            NutritionRow("of which sugars", "${item.sugarG.formatNullable()} g", indent = true)
             NutritionRow("Protein", "${item.proteinG.formatNullable()} g")
             NutritionRow("Salt", "${item.saltG.formatNullable()} g")
             if (item.source.isNotBlank()) SourceUrlRow("Source URL", item.source)
@@ -495,25 +495,63 @@ private fun NutritionFields(
 }
 
 @Composable
+fun NutritionLabelRows(
+    amountGml: Double?,
+    caloriesKcal: Double?,
+    fatG: Double?,
+    saturatedFatG: Double?,
+    carbsG: Double?,
+    sugarG: Double?,
+    proteinG: Double?,
+    saltG: Double?,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        NutritionRow("Amount", "${amountGml.formatNullable()} g/ml")
+        NutritionRow("Energy", caloriesKcal.formatEnergy())
+        NutritionRow("Fat", "${fatG.formatNullable()} g")
+        NutritionRow("of which saturates", "${saturatedFatG.formatNullable()} g", indent = true)
+        NutritionRow("Carbohydrate", "${carbsG.formatNullable()} g")
+        NutritionRow("of which sugars", "${sugarG.formatNullable()} g", indent = true)
+        NutritionRow("Protein", "${proteinG.formatNullable()} g")
+        NutritionRow("Salt", "${saltG.formatNullable()} g")
+    }
+}
+
+@Composable
 private fun NutritionLabel(totals: NutritionTotals, source: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        NutritionRow("Amount", "${totals.amountGml.formatNullable()} g/ml")
-        NutritionRow("Energy", totals.caloriesKcal.formatEnergy())
-        NutritionRow("Fat", "${totals.fatG.formatNullable()} g")
-        NutritionRow("of which saturates", "${totals.saturatedFatG.formatNullable()} g")
-        NutritionRow("Carbohydrate", "${totals.carbsG.formatNullable()} g")
-        NutritionRow("of which sugars", "${totals.sugarG.formatNullable()} g")
-        NutritionRow("Protein", "${totals.proteinG.formatNullable()} g")
-        NutritionRow("Salt", "${totals.saltG.formatNullable()} g")
+        NutritionLabelRows(
+            amountGml = totals.amountGml,
+            caloriesKcal = totals.caloriesKcal,
+            fatG = totals.fatG,
+            saturatedFatG = totals.saturatedFatG,
+            carbsG = totals.carbsG,
+            sugarG = totals.sugarG,
+            proteinG = totals.proteinG,
+            saltG = totals.saltG,
+        )
         if (source.isNotBlank()) SourceUrlRow("Source URL", source)
     }
 }
 
 @Composable
-private fun NutritionRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+private fun NutritionRow(label: String, value: String, indent: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = if (indent) 20.dp else 0.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = if (indent) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (indent) 0.75f else 1f),
+        )
+        Text(
+            value,
+            modifier = Modifier.weight(1f),
+            style = if (indent) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+            fontWeight = if (indent) FontWeight.Medium else FontWeight.SemiBold,
+        )
     }
 }
 

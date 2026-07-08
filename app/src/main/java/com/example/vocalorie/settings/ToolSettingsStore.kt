@@ -21,7 +21,23 @@ class ToolSettingsStore(context: Context) {
         maxResearchToolCalls = getMaxResearchToolCalls(),
         maxAgentIterations = getMaxAgentIterations(),
         openAiModelChoiceName = getOpenAiModelChoiceName(),
+        systemPromptOverride = savedSystemPromptOverride(),
     )
+
+    fun savedSystemPromptOverride(): String? = prefs.getString(KEY_SYSTEM_PROMPT_OVERRIDE, null)
+
+    @Synchronized
+    fun saveSystemPromptOverride(prompt: String) {
+        val trimmed = prompt.trim()
+        require(trimmed.isNotEmpty()) { "System prompt cannot be blank." }
+
+        prefs.edit().putString(KEY_SYSTEM_PROMPT_OVERRIDE, trimmed).apply()
+    }
+
+    @Synchronized
+    fun clearSystemPromptOverride() {
+        prefs.edit().remove(KEY_SYSTEM_PROMPT_OVERRIDE).apply()
+    }
 
     fun savedBraveKeyLabel(): String? = ToolSettingsLabels.braveKeyLabel(
         prefs.getString(KEY_BRAVE_LAST4, null) ?: defaultBraveApiKey()?.let(ToolSettingsLabels::last4),
@@ -139,5 +155,6 @@ class ToolSettingsStore(context: Context) {
         private const val KEY_MAX_RESEARCH_TOOL_CALLS = "max_research_tool_calls"
         private const val KEY_MAX_AGENT_ITERATIONS = "max_agent_iterations"
         private const val KEY_OPENAI_MODEL_CHOICE = "openai_model_choice"
+        private const val KEY_SYSTEM_PROMPT_OVERRIDE = "system_prompt_override"
     }
 }

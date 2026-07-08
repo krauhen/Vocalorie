@@ -29,7 +29,7 @@ class KoogNutritionSpikeLiveHarnessTest {
             openAiApiKey = apiKey,
             query = QUERY,
             toolSettings = ToolSettings(),
-            imageAttachment = attachment,
+            imageAttachments = listOf(attachment),
         )
 
         printEstimate(result)

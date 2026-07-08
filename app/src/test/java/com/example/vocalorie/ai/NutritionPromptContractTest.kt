@@ -21,8 +21,8 @@ class NutritionPromptContractTest {
         assertTrue(promptSource.contains("Use that amount together with the image."))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
         assertTrue(promptSource.contains("Estimate this meal from the attached photo"))
-        assertTrue(promptSource.contains("imageAttachment?.let { image(it.image) }"))
-        assertTrue(promptSource.contains("imageAttachment: GalleryImageAttachment? = null"))
+        assertTrue(promptSource.contains("imageAttachments.forEach { image(it.image) }"))
+        assertTrue(promptSource.contains("imageAttachments: List<GalleryImageAttachment> = emptyList()"))
 
         assertTrue(dtoSource.contains("A structured nutrition estimate"))
         assertTrue(dtoSource.contains("source must be a concrete http/https food-entry page URL"))

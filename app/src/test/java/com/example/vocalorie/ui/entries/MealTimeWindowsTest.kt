@@ -129,10 +129,10 @@ class MealTimeWindowsTest {
     @Test
     fun selectedStatsSumNutritionForExpectedWindowsAndIgnoreNulls() {
         val meals = listOf(
-            meal(1, now.minusSeconds(60 * 60), calories = 100.0, protein = 10.0, carbs = 20.0, fat = 5.0, amount = 150.0),
-            meal(2, LocalDateTime.of(2026, 6, 30, 8, 0).atZone(zone).toInstant(), calories = 200.0, protein = null, carbs = 30.0, fat = 10.0, amount = null),
-            meal(3, now.minusSeconds(5 * 60 * 60), calories = 300.0, protein = 30.0, carbs = 40.0, fat = null, amount = 250.0),
-            meal(4, now.minusSeconds(23 * 60 * 60), calories = 400.0, protein = 40.0, carbs = 50.0, fat = 20.0, amount = 500.0),
+            meal(1, now.minusSeconds(60 * 60), calories = 100.0, protein = 10.0, carbs = 20.0, fat = 5.0, amount = 150.0, saturatedFat = 1.0, sugar = 2.0, salt = 0.1),
+            meal(2, LocalDateTime.of(2026, 6, 30, 8, 0).atZone(zone).toInstant(), calories = 200.0, protein = null, carbs = 30.0, fat = 10.0, amount = null, saturatedFat = 2.0, sugar = 3.0, salt = 0.2),
+            meal(3, now.minusSeconds(5 * 60 * 60), calories = 300.0, protein = 30.0, carbs = 40.0, fat = null, amount = 250.0, saturatedFat = 3.0, sugar = 4.0, salt = 0.3),
+            meal(4, now.minusSeconds(23 * 60 * 60), calories = 400.0, protein = 40.0, carbs = 50.0, fat = 20.0, amount = 500.0, saturatedFat = 4.0, sugar = 5.0, salt = 0.4),
         )
 
         val last24Hours = selectedTimelineStats(meals, now, zone, selection = MealStatsWindowSelection(mode = MealStatsWindowMode.LAST_24_HOURS))
@@ -140,11 +140,11 @@ class MealTimeWindowsTest {
         val custom = selectedTimelineStats(meals, now, zone, selection = MealStatsWindowSelection(mode = MealStatsWindowMode.CUSTOM))
 
         assertEquals("Last 24h", last24Hours.label)
-        assertStats(last24Hours.stats, calories = 1000.0, protein = 80.0, carbs = 140.0, fat = 35.0, amount = 900.0)
+        assertStats(last24Hours.stats, calories = 1000.0, protein = 80.0, carbs = 140.0, fat = 35.0, amount = 900.0, saturatedFat = 10.0, sugar = 14.0, salt = 1.0)
         assertEquals("Since 00:00", sinceMidnight.label)
-        assertStats(sinceMidnight.stats, calories = 600.0, protein = 40.0, carbs = 90.0, fat = 15.0, amount = 400.0)
+        assertStats(sinceMidnight.stats, calories = 600.0, protein = 40.0, carbs = 90.0, fat = 15.0, amount = 400.0, saturatedFat = 6.0, sugar = 9.0, salt = 0.6)
         assertEquals("Last 4h", custom.label)
-        assertStats(custom.stats, calories = 100.0, protein = 10.0, carbs = 20.0, fat = 5.0, amount = 150.0)
+        assertStats(custom.stats, calories = 100.0, protein = 10.0, carbs = 20.0, fat = 5.0, amount = 150.0, saturatedFat = 1.0, sugar = 2.0, salt = 0.1)
     }
 
     @Test
@@ -298,12 +298,25 @@ class MealTimeWindowsTest {
         assertEquals(Duration.ofHours(24), normalizeRollingStatsDuration(Duration.ofHours(25)))
     }
 
-    private fun assertStats(stats: MealNutritionStats, calories: Double, protein: Double, carbs: Double, fat: Double, amount: Double) {
+    private fun assertStats(
+        stats: MealNutritionStats,
+        calories: Double,
+        protein: Double,
+        carbs: Double,
+        fat: Double,
+        amount: Double,
+        saturatedFat: Double = 0.0,
+        sugar: Double = 0.0,
+        salt: Double = 0.0,
+    ) {
         assertEquals(calories, stats.caloriesKcal, 0.0)
         assertEquals(protein, stats.proteinG, 0.0)
         assertEquals(carbs, stats.carbsG, 0.0)
         assertEquals(fat, stats.fatG, 0.0)
         assertEquals(amount, stats.amountGml, 0.0)
+        assertEquals(saturatedFat, stats.saturatedFatG, 1e-9)
+        assertEquals(sugar, stats.sugarG, 1e-9)
+        assertEquals(salt, stats.saltG, 1e-9)
     }
 
     private fun meal(
@@ -314,6 +327,9 @@ class MealTimeWindowsTest {
         carbs: Double? = 1.0,
         fat: Double? = 1.0,
         amount: Double? = 1.0,
+        saturatedFat: Double? = 0.0,
+        sugar: Double? = 0.0,
+        salt: Double? = 0.0,
     ) = SavedMeal(
         id = id,
         createdAtEpochMillis = createdAt.toEpochMilli(),
@@ -325,9 +341,9 @@ class MealTimeWindowsTest {
             proteinG = protein,
             carbsG = carbs,
             fatG = fat,
-            saturatedFatG = 0.0,
-            sugarG = 0.0,
-            saltG = 0.0,
+            saturatedFatG = saturatedFat,
+            sugarG = sugar,
+            saltG = salt,
         ),
         source = "",
         assumptions = emptyList(),

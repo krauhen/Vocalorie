@@ -6,11 +6,14 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import java.io.ByteArrayOutputStream
 
 data class GalleryImageAttachment(
     val label: String,
     val image: AttachmentSource.Image,
+    val previewImage: ImageBitmap? = null,
 )
 
 fun Context.toGalleryImageAttachment(uri: Uri): GalleryImageAttachment {
@@ -28,6 +31,7 @@ fun Context.toGalleryImageAttachment(uri: Uri): GalleryImageAttachment {
             mimeType = normalized.mimeType,
             fileName = displayName,
         ),
+        previewImage = normalized.previewBitmap.asImageBitmap(),
     )
 }
 
@@ -35,6 +39,7 @@ private data class NormalizedImageBytes(
     val bytes: ByteArray,
     val format: String,
     val mimeType: String,
+    val previewBitmap: Bitmap,
 )
 
 private fun normalizeImageBytes(rawBytes: ByteArray): NormalizedImageBytes {
@@ -59,11 +64,12 @@ private fun normalizeImageBytes(rawBytes: ByteArray): NormalizedImageBytes {
         check(scaledBitmap.compress(compressionFormat, quality, output)) { "Could not compress the selected image." }
         output.toByteArray()
     }
+    val previewBitmap = scaledBitmap.scaleDownIfNeeded(PREVIEW_MAX_DIMENSION)
 
-    if (scaledBitmap !== bitmap) bitmap.recycle()
-    scaledBitmap.recycle()
+    if (bitmap !== scaledBitmap && bitmap !== previewBitmap) bitmap.recycle()
+    if (scaledBitmap !== previewBitmap) scaledBitmap.recycle()
 
-    return NormalizedImageBytes(bytes = compressed, format = format, mimeType = format.toMimeType())
+    return NormalizedImageBytes(bytes = compressed, format = format, mimeType = format.toMimeType(), previewBitmap = previewBitmap)
 }
 
 private fun calculateSampleSize(width: Int, height: Int, maxDimension: Int): Int {
@@ -92,5 +98,8 @@ private fun String.toMimeType(): String = when (this) {
     else -> error("Unsupported image format.")
 }
 
+const val MAX_IMAGE_ATTACHMENTS = 4
+
 private const val MAX_IMAGE_DIMENSION = 1536
+private const val PREVIEW_MAX_DIMENSION = 256
 private const val JPEG_QUALITY = 90

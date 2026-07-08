@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -38,17 +39,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.ui.components.HeaderDropdownAction
+import com.example.vocalorie.ui.components.NutritionLabelRows
 import com.example.vocalorie.ui.components.formatDate
 import com.example.vocalorie.ui.components.formatNullable
 import com.example.vocalorie.ui.components.mealCalorieStateStyle
@@ -87,6 +94,7 @@ fun MealEntriesScreen(
     val caloriesHistogram = remember(meals, now, zone, selectedDayOffset) { selectedDayCaloriesHistogram(meals, now, zone, selectedDayOffset) }
     var showStatsWindowMenu by rememberSaveable { mutableStateOf(false) }
     var showStatsWindowDialog by rememberSaveable { mutableStateOf(false) }
+    var showDayStatsDetail by rememberSaveable { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -94,8 +102,8 @@ fun MealEntriesScreen(
             .background(MaterialTheme.colorScheme.background),
     ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, top = 32.dp, end = 20.dp, bottom = 116.dp),
+            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
@@ -122,6 +130,7 @@ fun MealEntriesScreen(
                             selectedStatsModeName = mode.name
                         }
                     },
+                    onOpenDetail = { showDayStatsDetail = true },
                 )
             }
             if (visibleMeals.isEmpty()) {
@@ -151,6 +160,35 @@ fun MealEntriesScreen(
             },
         )
     }
+
+    if (showDayStatsDetail) {
+        DayNutritionDetailDialog(
+            label = stats.label,
+            stats = stats.stats,
+            onDismiss = { showDayStatsDetail = false },
+        )
+    }
+}
+
+@Composable
+private fun DayNutritionDetailDialog(label: String, stats: MealNutritionStats, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(label) },
+        text = {
+            NutritionLabelRows(
+                amountGml = stats.amountGml,
+                caloriesKcal = stats.caloriesKcal,
+                fatG = stats.fatG,
+                saturatedFatG = stats.saturatedFatG,
+                carbsG = stats.carbsG,
+                sugarG = stats.sugarG,
+                proteinG = stats.proteinG,
+                saltG = stats.saltG,
+            )
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable
@@ -160,9 +198,10 @@ private fun SelectableStatsHeader(
     changeMenuExpanded: Boolean,
     onChangeMenuExpandedChange: (Boolean) -> Unit,
     onSelectStatsWindow: (MealStatsWindowMode) -> Unit,
+    onOpenDetail: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenDetail),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
     ) {
@@ -407,17 +446,40 @@ private fun DayNavigator(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    label,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    textAlign = TextAlign.Center,
+            val primary = MaterialTheme.colorScheme.primary
+            val headerShape = MaterialTheme.shapes.medium
+            val headerBrush = remember(primary) {
+                Brush.linearGradient(
+                    colors = listOf(
+                        lerp(primary, Color.White, 0.22f),
+                        primary,
+                        lerp(primary, Color.Black, 0.28f),
+                    ),
                 )
-                SettingsActionButton(onClick = onOpenSettings, modifier = Modifier.padding(start = 8.dp))
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(elevation = 6.dp, shape = headerShape, clip = false)
+                    .clip(headerShape)
+                    .background(headerBrush),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        label,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    SettingsActionButton(onClick = onOpenSettings, modifier = Modifier.padding(start = 8.dp))
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -489,27 +551,35 @@ private fun MealEntryRow(meal: SavedMeal, onClick: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = style.containerColor, contentColor = style.contentColor),
         border = BorderStroke(1.dp, style.borderColor),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(meal.title.ifBlank { meal.query }, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        meal.query,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = style.contentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        formatDate(meal.createdAtEpochMillis),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = style.contentColor,
-                    )
-                }
-            }
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                "${meal.totals.caloriesKcal.formatEnergy()} · Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
-                style = MaterialTheme.typography.bodyMedium,
+                meal.title.ifBlank { meal.query },
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                meal.query,
+                style = MaterialTheme.typography.bodySmall,
+                color = style.contentColor.copy(alpha = 0.82f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                meal.totals.caloriesKcal.formatEnergy(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                "Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
+                style = MaterialTheme.typography.bodySmall,
+                color = style.contentColor,
+            )
+            Text(
+                formatDate(meal.createdAtEpochMillis),
+                style = MaterialTheme.typography.labelSmall,
+                color = style.contentColor.copy(alpha = 0.65f),
             )
         }
     }

@@ -51,7 +51,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
     var error by remember { mutableStateOf<String?>(null) }
     var diagnostic by remember { mutableStateOf<String?>(null) }
     var saveMessage by remember { mutableStateOf<String?>(null) }
-    var attachedImage by remember { mutableStateOf<GalleryImageAttachment?>(null) }
+    var attachedImages by remember { mutableStateOf<List<GalleryImageAttachment>>(emptyList()) }
     var resetSignal by remember { mutableStateOf(0) }
     var settingsMessage by remember { mutableStateOf<String?>(null) }
     var savedKeyLabel by remember { mutableStateOf<String?>(apiKeyStore.displayLabel()) }
@@ -87,7 +87,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
         error = null
         diagnostic = null
         saveMessage = null
-        attachedImage = null
+        attachedImages = emptyList()
         resetSignal += 1
     }
 
@@ -106,7 +106,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                     openAiApiKey = keyForEstimate,
                     query = request.requestQuery,
                     toolSettings = settingsForEstimate,
-                    imageAttachment = request.imageAttachment,
+                    imageAttachments = request.imageAttachments,
                 ).toEditableDraft().copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
             } catch (throwable: NutritionSpikeException) {
                 error = throwable.message ?: "Koog nutrition estimate failed."
@@ -195,6 +195,25 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                     .onSuccess { refreshToolSettings(); settingsMessage = "Saved AI model." }
                     .onFailure { settingsMessage = it.message ?: "Could not save AI model." }
             },
+            onSaveSystemPrompt = { newPrompt ->
+                settingsMessage = null
+                val missing = KoogNutritionSpike.missingRequiredSystemPromptPhrases(newPrompt)
+                runCatching { toolSettingsStore.saveSystemPromptOverride(newPrompt) }
+                    .onSuccess {
+                        refreshToolSettings()
+                        settingsMessage = if (missing.isEmpty()) {
+                            "Saved system prompt."
+                        } else {
+                            "Saved system prompt, but it's missing: ${missing.joinToString("; ")}"
+                        }
+                    }
+                    .onFailure { settingsMessage = it.message ?: "Could not save system prompt." }
+            },
+            onResetSystemPrompt = {
+                toolSettingsStore.clearSystemPromptOverride()
+                refreshToolSettings()
+                settingsMessage = "Restored default system prompt."
+            },
             onBack = { showSettings = false },
         )
     } else {
@@ -220,7 +239,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                     error = error,
                     diagnostic = diagnostic,
                     saveMessage = saveMessage,
-                    attachedImageLabel = attachedImage?.label,
+                    attachedImages = attachedImages,
                     searchQuery = searchQuery,
                     onSearchQueryChange = { searchQuery = it },
                     searchResults = searchResults,
@@ -228,6 +247,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                         error = null
                         diagnostic = null
                         saveMessage = null
+                        searchQuery = ""
                         approvalMatch = CachedMealMatch(meal = meal, draft = meal.toEditableDraft())
                         pendingEstimateRequest = null
                     },
@@ -237,28 +257,34 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                         diagnostic = null
                         saveMessage = null
                         draft = null
-                        val imageAttachment = attachedImage
+                        val imageAttachments = attachedImages
                         val promptQuery = query.ifBlank {
-                            if (imageAttachment != null) "Estimate the meal from the attached photo." else ""
+                            if (imageAttachments.isNotEmpty()) "Estimate the meal from the attached photo${if (imageAttachments.size > 1) "s" else ""}." else ""
                         }
-                        val finalDraftQuery = query.ifBlank { imageAttachment?.label?.let { "Photo: $it" }.orEmpty() }
+                        val finalDraftQuery = query.ifBlank {
+                            when (imageAttachments.size) {
+                                0 -> ""
+                                1 -> "Photo: ${imageAttachments.first().label}"
+                                else -> "Photos (${imageAttachments.size})"
+                            }
+                        }
                         val cachedMatch = findCachedMealMatch(savedMeals, promptQuery)
                         when {
                             cachedMatch != null -> {
                                 approvalMatch = cachedMatch
-                                pendingEstimateRequest = EstimateRequest(promptQuery, finalDraftQuery, imageAttachment)
+                                pendingEstimateRequest = EstimateRequest(promptQuery, finalDraftQuery, imageAttachments)
                             }
                             promptQuery.isBlank() -> error = "Enter a nutrition query or attach a photo."
-                            else -> runEstimate(EstimateRequest(promptQuery, finalDraftQuery, imageAttachment))
+                            else -> runEstimate(EstimateRequest(promptQuery, finalDraftQuery, imageAttachments))
                         }
                     },
                     onReset = { resetNewMealEstimate() },
-                    onPickImage = { attachment: GalleryImageAttachment? ->
+                    onImagesChange = { images ->
                         draft = null
                         error = null
                         diagnostic = null
                         saveMessage = null
-                        attachedImage = attachment
+                        attachedImages = images
                     },
                     onSave = { mealDraft ->
                         error = null
@@ -276,7 +302,7 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
                                     selectedDraft = selectedMeal?.toEditableDraft()
                                     draft = null
                                     query = ""
-                                    attachedImage = null
+                                    attachedImages = emptyList()
                                     saveMessage = "Saved meal to local entries."
                                 } catch (throwable: Throwable) {
                                     error = throwable.message ?: "Could not save meal locally."
@@ -389,5 +415,5 @@ fun SpikeScreen(modifier: Modifier = Modifier) {
 private data class EstimateRequest(
     val requestQuery: String,
     val finalDraftQuery: String,
-    val imageAttachment: GalleryImageAttachment?,
+    val imageAttachments: List<GalleryImageAttachment>,
 )

@@ -8,9 +8,11 @@ data class ToolSettings(
     val maxResearchToolCalls: Int = DEFAULT_MAX_RESEARCH_TOOL_CALLS,
     val maxAgentIterations: Int = DEFAULT_MAX_AGENT_ITERATIONS,
     val openAiModelChoiceName: String = OpenAiModelChoice.default.name,
+    val systemPromptOverride: String? = null,
 ) {
     val hasBraveApiKey: Boolean get() = !braveApiKey.isNullOrBlank()
     val openAiModelChoice: OpenAiModelChoice get() = OpenAiModelChoice.fromName(openAiModelChoiceName)
+    val hasCustomSystemPrompt: Boolean get() = !systemPromptOverride.isNullOrBlank()
 
     companion object {
         const val MIN_MAX_RESEARCH_TOOL_CALLS = 0
