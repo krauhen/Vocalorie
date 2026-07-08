@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="vocalorie_neutral_dark">#FF111111</color>
+    <color name="vocalorie_dark_background">#FF111111</color>
+    <color name="vocalorie_neutral_raised">#FF18181B</color>
+    <color name="vocalorie_sun">#FFFFB600</color>
+    <color name="vocalorie_orange">#FFF77605</color>
+    <color name="vocalorie_background">#FFFFFFFF</color>
+    <color name="vocalorie_neutral_background">#FFFAFAFA</color>
+    <color name="vocalorie_surface">#FFFFFFFF</color>
+</resources>

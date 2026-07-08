@@ -1,0 +1,520 @@
+package com.example.vocalorie.ui.entries
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.ui.components.HeaderDropdownAction
+import com.example.vocalorie.ui.components.formatDate
+import com.example.vocalorie.ui.components.formatNullable
+import com.example.vocalorie.ui.components.mealCalorieStateStyle
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import kotlin.math.ceil
+import kotlin.math.roundToInt
+
+@Composable
+fun MealEntriesScreen(
+    meals: List<SavedMeal>,
+    onOpenMeal: (SavedMeal) -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    voiceButton: @Composable () -> Unit,
+) {
+    var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
+    var selectedStatsModeName by rememberSaveable { mutableStateOf(MealStatsWindowMode.SINCE_MIDNIGHT.name) }
+    var customRollingStatsMinutes by rememberSaveable { mutableIntStateOf(DEFAULT_ROLLING_STATS_MINUTES) }
+    val now = remember(meals) { Instant.now() }
+    val zone = remember { ZoneId.systemDefault() }
+    val visibleMeals = remember(meals, selectedDayOffset, now, zone) { filterMealsForDay(meals, selectedDayOffset, now, zone) }
+    val dayWindow = remember(selectedDayOffset, now, zone) { selectedDayWindow(selectedDayOffset, now, zone) }
+    val selectedStatsMode = remember(selectedStatsModeName) {
+        runCatching { MealStatsWindowMode.valueOf(selectedStatsModeName) }.getOrDefault(MealStatsWindowMode.SINCE_MIDNIGHT)
+    }
+    val statsSelection = remember(selectedStatsMode, customRollingStatsMinutes) {
+        MealStatsWindowSelection(
+            mode = selectedStatsMode,
+            customDuration = Duration.ofMinutes(customRollingStatsMinutes.toLong()),
+        )
+    }
+    val stats = remember(meals, now, zone, selectedDayOffset, statsSelection) { selectedTimelineStats(meals, now, zone, selectedDayOffset, statsSelection) }
+    val caloriesHistogram = remember(meals, now, zone, selectedDayOffset) { selectedDayCaloriesHistogram(meals, now, zone, selectedDayOffset) }
+    var showStatsWindowMenu by rememberSaveable { mutableStateOf(false) }
+    var showStatsWindowDialog by rememberSaveable { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 32.dp, end = 20.dp, bottom = 116.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item {
+                DayNavigator(
+                    label = dayWindow.label,
+                    canGoNewer = selectedDayOffset > 0,
+                    onOlder = { selectedDayOffset += 1 },
+                    onNewer = { if (selectedDayOffset > 0) selectedDayOffset -= 1 },
+                    onToday = { selectedDayOffset = 0 },
+                    onOpenSettings = onOpenSettings,
+                )
+            }
+            item {
+                SelectableStatsHeader(
+                    stats = stats,
+                    caloriesHistogram = caloriesHistogram,
+                    changeMenuExpanded = showStatsWindowMenu,
+                    onChangeMenuExpandedChange = { showStatsWindowMenu = it },
+                    onSelectStatsWindow = { mode ->
+                        showStatsWindowMenu = false
+                        if (mode == MealStatsWindowMode.CUSTOM) {
+                            showStatsWindowDialog = true
+                        } else {
+                            selectedStatsModeName = mode.name
+                        }
+                    },
+                )
+            }
+            if (visibleMeals.isEmpty()) {
+                item { EmptyEntriesCard(hasSavedEntries = meals.isNotEmpty()) }
+            } else {
+                items(visibleMeals, key = { it.id }) { meal -> MealEntryRow(meal = meal, onClick = { onOpenMeal(meal) }) }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(end = 24.dp, bottom = 20.dp),
+        ) { voiceButton() }
+    }
+
+    if (showStatsWindowDialog) {
+        StatsWindowSelectorDialog(
+            selectedMode = selectedStatsMode,
+            selectedCustomMinutes = customRollingStatsMinutes,
+            onDismiss = { showStatsWindowDialog = false },
+            onSelected = { mode, minutes ->
+                selectedStatsModeName = mode.name
+                customRollingStatsMinutes = minutes
+                showStatsWindowDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun SelectableStatsHeader(
+    stats: LabeledMealStats,
+    caloriesHistogram: List<MealCaloriesBucket>,
+    changeMenuExpanded: Boolean,
+    onChangeMenuExpandedChange: (Boolean) -> Unit,
+    onSelectStatsWindow: (MealStatsWindowMode) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f)),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stats.label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                HeaderDropdownAction(
+                    expanded = changeMenuExpanded,
+                    onExpandedChange = onChangeMenuExpandedChange,
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Since 00:00") },
+                        onClick = { onSelectStatsWindow(MealStatsWindowMode.SINCE_MIDNIGHT) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Last 24h") },
+                        onClick = { onSelectStatsWindow(MealStatsWindowMode.LAST_24_HOURS) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Custom") },
+                        onClick = { onSelectStatsWindow(MealStatsWindowMode.CUSTOM) },
+                    )
+                }
+            }
+            Text(stats.stats.caloriesKcal.formatEnergy(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Protein ${stats.stats.proteinG.formatNullable()}g · Carbs ${stats.stats.carbsG.formatNullable()}g · Fat ${stats.stats.fatG.formatNullable()}g · Amount ${stats.stats.amountGml.formatNullable()}g/ml",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            StatsHistogramSeparator()
+            CaloriesHistogram(caloriesHistogram)
+        }
+    }
+}
+
+@Composable
+private fun StatsHistogramSeparator() {
+    val lineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.36f)
+
+    Canvas(modifier = Modifier.fillMaxWidth().height(10.dp)) {
+        drawLine(
+            color = lineColor,
+            start = Offset(0f, size.height / 2f),
+            end = Offset(size.width, size.height / 2f),
+            strokeWidth = 1.dp.toPx(),
+            cap = StrokeCap.Round,
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 5.dp.toPx())),
+        )
+    }
+}
+
+@Composable
+private fun CaloriesHistogram(buckets: List<MealCaloriesBucket>) {
+    val maxCalories = buckets.maxOfOrNull { it.caloriesKcal } ?: 0.0
+    val axisMaxCalories = remember(maxCalories) { niceCaloriesAxisMax(maxCalories) }
+    val midTickCalories = axisMaxCalories / 2.0
+    val timeLabels = remember(buckets) { formatHistogramTimeLabels(buckets) }
+    val barColor = MaterialTheme.colorScheme.primary
+    val emptyBarColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Calories over time",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+            )
+            Text(
+                "kcal",
+                style = MaterialTheme.typography.labelSmall,
+                color = labelColor,
+            )
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                modifier = Modifier.height(42.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End,
+            ) {
+                Text(axisMaxCalories.formatCaloriesTick(), style = MaterialTheme.typography.labelSmall, color = labelColor)
+                Text(midTickCalories.formatCaloriesTick(), style = MaterialTheme.typography.labelSmall, color = labelColor)
+                Text("0", style = MaterialTheme.typography.labelSmall, color = labelColor)
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Canvas(modifier = Modifier.fillMaxWidth().height(42.dp)) {
+                    if (buckets.isEmpty()) return@Canvas
+
+                    val gap = 1.dp.toPx()
+                    val count = buckets.size
+                    val barWidth = ((size.width - gap * (count - 1)) / count).coerceAtLeast(1f)
+                    val minEmptyHeight = 1.dp.toPx()
+                    val minFilledHeight = 3.dp.toPx()
+                    val cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx())
+                    listOf(0f, size.height / 2f, size.height).forEach { y ->
+                        drawLine(color = gridColor, start = Offset(0f, y), end = Offset(size.width, y), strokeWidth = 1.dp.toPx())
+                    }
+
+                    buckets.forEachIndexed { index, bucket ->
+                        val fraction = if (axisMaxCalories > 0.0) (bucket.caloriesKcal / axisMaxCalories).toFloat().coerceIn(0f, 1f) else 0f
+                        val isFilled = bucket.caloriesKcal > 0.0
+                        val barHeight = if (isFilled) (size.height * fraction).coerceAtLeast(minFilledHeight) else minEmptyHeight
+                        val left = index * (barWidth + gap)
+                        drawRoundRect(
+                            color = if (isFilled) barColor else emptyBarColor,
+                            topLeft = Offset(left, size.height - barHeight),
+                            size = Size(barWidth, barHeight),
+                            cornerRadius = cornerRadius,
+                        )
+                    }
+
+                }
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(timeLabels.start, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = labelColor)
+                    timeLabels.midpoint?.let {
+                        Text(
+                            it,
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = labelColor,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    Text(
+                        timeLabels.end,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = labelColor,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class HistogramTimeLabels(
+    val start: String,
+    val midpoint: String?,
+    val end: String,
+)
+
+private fun formatHistogramTimeLabels(buckets: List<MealCaloriesBucket>): HistogramTimeLabels {
+    if (buckets.isEmpty()) return HistogramTimeLabels("00:00", null, "23:59")
+    val formatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    val start = buckets.first().startInclusive
+    val end = buckets.last().end.minusSeconds(60)
+    val midpoint = start.plusMillis(Duration.between(start, buckets.last().end).toMillis() / 2)
+    return HistogramTimeLabels(
+        start = formatter.format(start),
+        midpoint = if (buckets.size >= 8) formatter.format(midpoint) else null,
+        end = formatter.format(end),
+    )
+}
+
+private fun niceCaloriesAxisMax(maxCalories: Double): Double {
+    if (maxCalories <= 0.0) return 100.0
+    val steps = listOf(50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0)
+    return steps.firstOrNull { it >= maxCalories } ?: (ceil(maxCalories / 5000.0) * 5000.0)
+}
+
+private fun Double.formatCaloriesTick(): String = roundToInt().toString()
+
+@Composable
+private fun StatsWindowSelectorDialog(
+    selectedMode: MealStatsWindowMode,
+    selectedCustomMinutes: Int,
+    onDismiss: () -> Unit,
+    onSelected: (MealStatsWindowMode, Int) -> Unit,
+) {
+    var pendingModeName by rememberSaveable(selectedMode) { mutableStateOf(selectedMode.name) }
+    var pendingMinutes by rememberSaveable(selectedCustomMinutes) { mutableIntStateOf(selectedCustomMinutes) }
+    val pendingMode = remember(pendingModeName) {
+        runCatching { MealStatsWindowMode.valueOf(pendingModeName) }.getOrDefault(MealStatsWindowMode.SINCE_MIDNIGHT)
+    }
+    val sliderSteps = ((MAX_ROLLING_STATS_MINUTES - MIN_ROLLING_STATS_MINUTES) / ROLLING_STATS_STEP_MINUTES) - 1
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Stats window") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatsModeOption("Since 00:00", MealStatsWindowMode.SINCE_MIDNIGHT, pendingMode) { pendingModeName = it.name }
+                StatsModeOption("Last 24h", MealStatsWindowMode.LAST_24_HOURS, pendingMode) { pendingModeName = it.name }
+                StatsModeOption("Custom", MealStatsWindowMode.CUSTOM, pendingMode) { pendingModeName = it.name }
+                if (pendingMode == MealStatsWindowMode.CUSTOM) {
+                    Text(formatRollingStatsLabel(Duration.ofMinutes(pendingMinutes.toLong())), style = MaterialTheme.typography.titleMedium)
+                    Slider(
+                        value = pendingMinutes.toFloat(),
+                        onValueChange = { value ->
+                            pendingMinutes = normalizeRollingStatsDuration(Duration.ofMinutes(value.roundToInt().toLong())).toMinutes().toInt()
+                        },
+                        valueRange = MIN_ROLLING_STATS_MINUTES.toFloat()..MAX_ROLLING_STATS_MINUTES.toFloat(),
+                        steps = sliderSteps,
+                    )
+                    Text("15-minute increments · 15 mins to 24 hours", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSelected(pendingMode, pendingMinutes) }) { Text("Apply") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun StatsModeOption(
+    label: String,
+    mode: MealStatsWindowMode,
+    selectedMode: MealStatsWindowMode,
+    onSelected: (MealStatsWindowMode) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onSelected(mode) }.padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        RadioButton(selected = selectedMode == mode, onClick = { onSelected(mode) })
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun DayNavigator(
+    label: String,
+    canGoNewer: Boolean,
+    onOlder: () -> Unit,
+    onNewer: () -> Unit,
+    onToday: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                )
+                SettingsActionButton(onClick = onOpenSettings, modifier = Modifier.padding(start = 8.dp))
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                OutlinedButton(
+                    onClick = onOlder,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                ) { DayNavigatorButtonText("Previous day") }
+                TextButton(
+                    onClick = onToday,
+                    enabled = canGoNewer,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                ) { DayNavigatorButtonText("Today") }
+                OutlinedButton(
+                    onClick = onNewer,
+                    enabled = canGoNewer,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                ) { DayNavigatorButtonText("Next day") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayNavigatorButtonText(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+    )
+}
+
+@Composable
+private fun SettingsActionButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(modifier = modifier, shape = CircleShape, color = MaterialTheme.colorScheme.surface, tonalElevation = 6.dp, shadowElevation = 6.dp) {
+        TextButton(onClick = onClick, modifier = Modifier.size(52.dp)) {
+            Text("⚙", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+        }
+    }
+}
+
+@Composable
+private fun EmptyEntriesCard(hasSavedEntries: Boolean) {
+    val title = if (hasSavedEntries) "No entries in this time window" else "No saved entries yet"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.55f)),
+    ) {
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MealEntryRow(meal: SavedMeal, onClick: () -> Unit) {
+    val style = mealCalorieStateStyle(meal.totals.caloriesKcal)
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = style.containerColor, contentColor = style.contentColor),
+        border = BorderStroke(1.dp, style.borderColor),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(meal.title.ifBlank { meal.query }, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        meal.query,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = style.contentColor,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        formatDate(meal.createdAtEpochMillis),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = style.contentColor,
+                    )
+                }
+            }
+            Text(
+                "${meal.totals.caloriesKcal.formatEnergy()} · Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+    }
+}
+
+private fun Double?.formatEnergy(): String = this?.let { kcal ->
+    "${(kcal * 4.184).roundToInt()} kJ / ${kcal.formatNullable()} kcal"
+} ?: "unknown"

@@ -1,0 +1,97 @@
+# Gradle
+.gradle/
+build/
+*/build/
+out/
+gradle-app.setting
+!gradle-wrapper.jar
+!gradle-wrapper.properties
+
+# Local machine configuration
+local.properties
+
+# Android Studio / IntelliJ
+*.iml
+.idea/*
+!.idea/codeStyles/
+!.idea/codeStyles/**
+!.idea/runConfigurations/
+!.idea/runConfigurations/**
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+freeline.py
+freeline/
+freeline_project_description.json
+
+# Android build outputs
+*.apk
+*.aar
+*.ap_
+*.aab
+*.dex
+bin/
+gen/
+out/
+release/
+output.json
+output-metadata.json
+
+# Log/profiling
+*.log
+.navigation/
+*.hprof
+
+# Lint
+lint/intermediates/
+lint/generated/
+lint/outputs/
+lint/tmp/
+lint-results-*.xml
+
+# Signing, secrets, and private config
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+google-services.json
+secrets.properties
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Kotlin / native
+.kotlintestcache/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/readme.md
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Private/local data artifacts (this project stores no repo data outside app databases)
+/data/
+*.db
+*.sqlite
+*.sqlite3
+*.gpx
+*.kml
+*.geojson
+screenshots/

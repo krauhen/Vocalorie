@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="openai_api_key_store.xml" />
+        <exclude domain="sharedpref" path="tool_settings_store.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="openai_api_key_store.xml" />
+        <exclude domain="sharedpref" path="tool_settings_store.xml" />
+    </device-transfer>
+</data-extraction-rules>
