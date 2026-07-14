@@ -171,16 +171,10 @@ private inline fun <T> filterEntriesForDay(
 }
 
 fun selectedStatsWindow(selection: MealStatsWindowSelection, now: Instant, zone: ZoneId, selectedDayOffset: Int = 0): MealTimeWindow {
-    val startOfToday = LocalDate.ofInstant(now, zone).atStartOfDay(zone).toInstant()
-
     return when (selection.mode) {
         MealStatsWindowMode.SINCE_MIDNIGHT -> {
-            if (selectedDayOffset == 0) {
-                MealTimeWindow("Since 00:00", startOfToday, now, endInclusive = true)
-            } else {
-                val selectedDay = selectedDayWindow(selectedDayOffset, now, zone)
-                MealTimeWindow("Since 00:00", selectedDay.startInclusive, selectedDay.end, endInclusive = selectedDay.endInclusive)
-            }
+            val selectedDay = selectedDayWindow(selectedDayOffset, now, zone)
+            MealTimeWindow("Since 00:00", selectedDay.startInclusive, selectedDay.end, endInclusive = selectedDay.endInclusive)
         }
         MealStatsWindowMode.LAST_24_HOURS -> MealTimeWindow("Last 24h", now.minus(Duration.ofHours(24)), now, endInclusive = true)
         MealStatsWindowMode.CUSTOM -> {

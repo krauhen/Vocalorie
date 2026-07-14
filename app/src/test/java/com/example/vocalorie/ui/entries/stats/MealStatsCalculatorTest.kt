@@ -143,6 +143,73 @@ class MealStatsCalculatorTest {
     }
 
     @Test
+    fun futureMealIsIncludedInAllRangeCounts() {
+        val meals = listOf(
+            meal(1, LocalDate.of(2026, 7, 9), calories = 500.0),
+            meal(2, LocalDate.of(2026, 7, 12), calories = 300.0),
+        )
+
+        val stats = computeMealStats(meals, MealStatsRange.ALL, now, zone)
+
+        assertEquals(2, stats.mealsLogged)
+        assertEquals(2, stats.activeDays)
+        assertEquals(400.0, stats.avgDailyCaloriesKcal, 0.0001)
+        assertEquals(300.0, stats.heatmap[LocalDate.of(2026, 7, 12)]!!, 0.0001)
+    }
+
+    @Test
+    fun currentStreakCountsAFutureOnlyLoggedDate() {
+        val meals = listOf(meal(1, LocalDate.of(2026, 7, 12)))
+
+        val stats = computeMealStats(meals, MealStatsRange.ALL, now, zone)
+
+        assertEquals(1, stats.currentStreak)
+        assertEquals(1, stats.longestStreak)
+    }
+
+    @Test
+    fun currentStreakExtendsThroughTodayIntoAFutureDate() {
+        val meals = listOf(
+            meal(1, LocalDate.of(2026, 7, 9)),
+            meal(2, LocalDate.of(2026, 7, 10)),
+            meal(3, LocalDate.of(2026, 7, 11)),
+            meal(4, LocalDate.of(2026, 7, 12)),
+        )
+
+        val stats = computeMealStats(meals, MealStatsRange.ALL, now, zone)
+
+        assertEquals(4, stats.currentStreak)
+        assertEquals(4, stats.longestStreak)
+    }
+
+    @Test
+    fun last7DaysWindowShiftsForwardWhenLatestMealIsInTheFuture() {
+        val meals = listOf(
+            meal(1, LocalDate.of(2026, 7, 3)),
+            meal(2, LocalDate.of(2026, 7, 6)),
+            meal(3, LocalDate.of(2026, 7, 12)),
+        )
+
+        val stats = computeMealStats(meals, MealStatsRange.LAST_7_DAYS, now, zone)
+
+        assertEquals(LocalDate.of(2026, 7, 6), stats.rangeStartDate)
+        assertEquals(2, stats.mealsLogged)
+        assertEquals(2, stats.activeDays)
+    }
+
+    @Test
+    fun heatmapWindowShiftsRightmostDateWhenLatestMealIsInTheFuture() {
+        val meals = listOf(meal(1, LocalDate.of(2026, 7, 12), calories = 250.0))
+
+        val stats = computeMealStats(meals, MealStatsRange.ALL, now, zone)
+
+        val expectedShiftedStart = LocalDate.of(2026, 7, 6).minusDays(13L * 7)
+        assertEquals(LocalDate.of(2026, 7, 12), stats.heatmap.keys.max())
+        assertEquals(expectedShiftedStart, stats.heatmap.keys.min())
+        assertEquals(250.0, stats.heatmap[LocalDate.of(2026, 7, 12)]!!, 0.0001)
+    }
+
+    @Test
     fun nutritionScoreIsNullForDayWithNoData() {
         assertEquals(null, nutritionScore(DailyNutritionTotals(0.0, 0.0, 0.0, 0.0)))
     }

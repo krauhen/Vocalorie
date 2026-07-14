@@ -16,21 +16,23 @@ fun computeMealStats(
 ): MealStats {
     val today = LocalDate.ofInstant(now, zone)
     val datedMeals = meals.map { it to it.localDate(zone) }
+    val latestDate = datedMeals.maxOfOrNull { it.second } ?: today
+    val effectiveEnd = if (latestDate.isAfter(today)) latestDate else today
 
     val rangeStartDate = when (range) {
         MealStatsRange.ALL -> datedMeals.minOfOrNull { it.second } ?: today
-        MealStatsRange.LAST_30_DAYS -> today.minusDays(29)
-        MealStatsRange.LAST_7_DAYS -> today.minusDays(6)
+        MealStatsRange.LAST_30_DAYS -> effectiveEnd.minusDays(29)
+        MealStatsRange.LAST_7_DAYS -> effectiveEnd.minusDays(6)
     }
 
-    val mealsInRange = datedMeals.filter { (_, date) -> !date.isBefore(rangeStartDate) && !date.isAfter(today) }
-    val heatmapStartDate = heatmapStartDate(today)
-    val heatmap = buildHeatmap(datedMeals, heatmapStartDate, today)
-    val dailyTotals = buildDailyTotals(datedMeals, heatmapStartDate, today)
+    val mealsInRange = datedMeals.filter { (_, date) -> !date.isBefore(rangeStartDate) && !date.isAfter(effectiveEnd) }
+    val heatmapStartDate = heatmapStartDate(effectiveEnd)
+    val heatmap = buildHeatmap(datedMeals, heatmapStartDate, effectiveEnd)
+    val dailyTotals = buildDailyTotals(datedMeals, heatmapStartDate, effectiveEnd)
 
     val allLoggedDates = datedMeals.map { it.second }.toSortedSet()
     val longestStreak = longestStreak(allLoggedDates)
-    val currentStreak = currentStreak(allLoggedDates, today)
+    val currentStreak = currentStreak(allLoggedDates)
 
     return MealStats(
         mealsLogged = mealsInRange.size,
@@ -60,11 +62,11 @@ private fun SavedMeal.localDate(zone: ZoneId): LocalDate =
 /**
  * Aligns the heatmap window to whole Mon-Sun calendar weeks: the leftmost of
  * [HEATMAP_COLUMN_COUNT] weeks is always complete, and the rightmost is the current
- * (possibly partial) week ending today.
+ * (possibly partial) week ending at [end].
  */
-private fun heatmapStartDate(today: LocalDate): LocalDate {
-    val dowIndex = today.dayOfWeek.value - 1
-    val currentWeekMonday = today.minusDays(dowIndex.toLong())
+private fun heatmapStartDate(end: LocalDate): LocalDate {
+    val dowIndex = end.dayOfWeek.value - 1
+    val currentWeekMonday = end.minusDays(dowIndex.toLong())
     return currentWeekMonday.minusDays((HEATMAP_COLUMN_COUNT - 1).toLong() * 7)
 }
 
@@ -155,8 +157,8 @@ internal fun normalizeFat(fat: Double): Double = when {
     else -> 0.0
 }
 
-private fun currentStreak(sortedDates: Set<LocalDate>, today: LocalDate): Int {
-    val mostRecentLoggedDate = sortedDates.lastOrNull { !it.isAfter(today) } ?: return 0
+private fun currentStreak(sortedDates: Set<LocalDate>): Int {
+    val mostRecentLoggedDate = sortedDates.lastOrNull() ?: return 0
     var streak = 1
     var cursor = mostRecentLoggedDate
     while (sortedDates.contains(cursor.minusDays(1))) {
