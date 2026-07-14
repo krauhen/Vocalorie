@@ -23,9 +23,9 @@
 - [x] 4.1 Implement a shared diagonal hatch-stripe fill drawing (Compose `Canvas`/`drawWithContent`) parameterized by a bucket color, matching the reference dashed-border + hatch pattern
 - [x] 4.2 Apply the hatch fill (in the row's existing calorie-bucket color) alongside the existing dashed border on `MealEntryRow` in `MealEntriesScreen.kt`
 - [x] 4.3 Extend the same future-timestamp check and dashed-border-plus-hatch-fill treatment to `ActivityEntryRow` in `MealEntriesScreen.kt`, using its own calorie-bucket color
-- [ ] 4.4 Manually verify on-device/emulator: future meal and future activity rows both show the dashed border + hatch fill in their respective bucket colors; past/present rows are unaffected
+- [x] 4.4 Manually verify on-device/emulator: future meal and future activity rows both show the dashed border + hatch fill in their respective bucket colors; past/present rows are unaffected
 
 ## 5. Verification
 
 - [x] 5.1 Run `./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon` and confirm all tests pass
-- [ ] 5.2 Manually exercise the meal-entry flow end-to-end (new meal parse, title review/edit, balance header coloring, source display, future-entry highlighting for a meal and an activity) on an emulator/device
+- [x] 5.2 Manually exercise the meal-entry flow end-to-end (new meal parse, title review/edit, balance header coloring, source display, future-entry highlighting for a meal and an activity) on an emulator/device
