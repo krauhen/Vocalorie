@@ -18,7 +18,6 @@ data class MealEntity(
     val saturatedFatG: Double?,
     val sugarG: Double?,
     val saltG: Double?,
-    val source: String?,
     val assumptionsText: String,
     val warningsText: String,
     val confidence: String,

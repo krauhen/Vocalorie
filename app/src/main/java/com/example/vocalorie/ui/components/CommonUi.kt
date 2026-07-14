@@ -122,6 +122,31 @@ fun mealCalorieStateStyle(caloriesKcal: Double?): MealStateStyle {
     }
 }
 
+/**
+ * Colours an activity by how many calories it burned: 200 kcal is the minimum tint,
+ * 1000 kcal reaches full-strength blue (the active scheme's primary). Values in between
+ * scale linearly.
+ */
+@Composable
+fun activityCalorieStateStyle(caloriesBurnedKcal: Double?): MealStateStyle {
+    val primary = MaterialTheme.colorScheme.primary
+    val surface = MaterialTheme.colorScheme.surface
+    val onSurface = MaterialTheme.colorScheme.onSurface
+    val kcal = caloriesBurnedKcal?.takeIf { it.isFinite() } ?: 0.0
+    val fraction = ((kcal - ACTIVITY_MIN_KCAL) / (ACTIVITY_MAX_KCAL - ACTIVITY_MIN_KCAL))
+        .coerceIn(0.0, 1.0)
+        .toFloat()
+    val alpha = 0.18f + fraction * 0.82f
+    return MealStateStyle(
+        containerColor = primary.copy(alpha = alpha).compositeOver(surface),
+        contentColor = if (fraction > 0.6f) MaterialTheme.colorScheme.onPrimary else onSurface,
+        borderColor = primary.copy(alpha = (alpha + 0.2f).coerceAtMost(1f)),
+    )
+}
+
+private const val ACTIVITY_MIN_KCAL = 200.0
+private const val ACTIVITY_MAX_KCAL = 1000.0
+
 @Composable
 fun mealStateStyle(confidence: ConfidenceLevel, needsHumanReview: Boolean): MealStateStyle = when {
     confidence == ConfidenceLevel.LOW -> MealStateStyle(

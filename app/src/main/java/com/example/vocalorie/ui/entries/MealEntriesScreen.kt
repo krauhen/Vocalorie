@@ -22,6 +22,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.outlined.RestaurantMenu
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedButton
@@ -30,6 +34,8 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,46 +46,72 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.model.SavedActivity
+import com.example.vocalorie.model.displayName
+import com.example.vocalorie.model.activityTypeIcon
 import com.example.vocalorie.ui.components.HeaderDropdownAction
 import com.example.vocalorie.ui.components.NutritionLabelRows
 import com.example.vocalorie.ui.components.formatDate
 import com.example.vocalorie.ui.components.formatNullable
+import com.example.vocalorie.ui.components.activityCalorieStateStyle
 import com.example.vocalorie.ui.components.mealCalorieStateStyle
+import com.example.vocalorie.ui.components.ReadOnlyActivitySummary
+import com.example.vocalorie.ui.entries.stats.DailyNutritionTotals
+import com.example.vocalorie.ui.entries.stats.MealStatsOverview
+import com.example.vocalorie.ui.entries.stats.MealStatsRange
+import com.example.vocalorie.ui.entries.stats.nutritionScore
+import com.example.vocalorie.ui.entries.dailyEnergyBalance
+import com.example.vocalorie.ui.entries.formatDuration
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 @Composable
 fun MealEntriesScreen(
     meals: List<SavedMeal>,
+    activities: List<SavedActivity> = emptyList(),
+    selectedTab: EntriesTab = EntriesTab.MEALS,
+    onSelectTab: (EntriesTab) -> Unit = {},
     onOpenMeal: (SavedMeal) -> Unit,
+    onOpenActivity: (SavedActivity) -> Unit = {},
+    onAddActivity: () -> Unit = {},
     onOpenSettings: () -> Unit,
+    baseCaloriesBurned: Int = 2400,
     modifier: Modifier = Modifier,
     voiceButton: @Composable () -> Unit,
 ) {
+    var selectedStatsRangeName by rememberSaveable { mutableStateOf(MealStatsRange.LAST_30_DAYS.name) }
     var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
     var selectedStatsModeName by rememberSaveable { mutableStateOf(MealStatsWindowMode.SINCE_MIDNIGHT.name) }
     var customRollingStatsMinutes by rememberSaveable { mutableIntStateOf(DEFAULT_ROLLING_STATS_MINUTES) }
     val now = remember(meals) { Instant.now() }
     val zone = remember { ZoneId.systemDefault() }
     val visibleMeals = remember(meals, selectedDayOffset, now, zone) { filterMealsForDay(meals, selectedDayOffset, now, zone) }
+    val visibleActivities = remember(activities, selectedDayOffset, now, zone) { filterActivitiesForDay(activities, selectedDayOffset, now, zone) }
     val dayWindow = remember(selectedDayOffset, now, zone) { selectedDayWindow(selectedDayOffset, now, zone) }
     val selectedStatsMode = remember(selectedStatsModeName) {
         runCatching { MealStatsWindowMode.valueOf(selectedStatsModeName) }.getOrDefault(MealStatsWindowMode.SINCE_MIDNIGHT)
@@ -90,8 +122,18 @@ fun MealEntriesScreen(
             customDuration = Duration.ofMinutes(customRollingStatsMinutes.toLong()),
         )
     }
+    val selectedStatsRange = remember(selectedStatsRangeName) {
+        runCatching { MealStatsRange.valueOf(selectedStatsRangeName) }.getOrDefault(MealStatsRange.LAST_30_DAYS)
+    }
     val stats = remember(meals, now, zone, selectedDayOffset, statsSelection) { selectedTimelineStats(meals, now, zone, selectedDayOffset, statsSelection) }
     val caloriesHistogram = remember(meals, now, zone, selectedDayOffset) { selectedDayCaloriesHistogram(meals, now, zone, selectedDayOffset) }
+    val selectedDayScore = remember(visibleMeals) { nutritionScore(visibleMeals.toDailyNutritionTotals()) }
+    val consumedCalories = remember(visibleMeals) { visibleMeals.toDailyNutritionTotals().caloriesKcal }
+    val activitiesCaloriesBurned = remember(visibleActivities) { visibleActivities.sumOf { it.caloriesBurnedKcal } }
+    val burnedCalories = baseCaloriesBurned + activitiesCaloriesBurned
+    val balanceCalories = remember(consumedCalories, activitiesCaloriesBurned, baseCaloriesBurned) {
+        dailyEnergyBalance(consumedCalories, baseCaloriesBurned.toDouble(), activitiesCaloriesBurned)
+    }
     var showStatsWindowMenu by rememberSaveable { mutableStateOf(false) }
     var showStatsWindowDialog by rememberSaveable { mutableStateOf(false) }
     var showDayStatsDetail by rememberSaveable { mutableStateOf(false) }
@@ -109,16 +151,18 @@ fun MealEntriesScreen(
             item {
                 DayNavigator(
                     label = dayWindow.label,
-                    canGoNewer = selectedDayOffset > 0,
+                    canGoNewer = true,
                     onOlder = { selectedDayOffset += 1 },
-                    onNewer = { if (selectedDayOffset > 0) selectedDayOffset -= 1 },
+                    onNewer = { selectedDayOffset -= 1 },
                     onToday = { selectedDayOffset = 0 },
-                    onOpenSettings = onOpenSettings,
                 )
             }
             item {
                 SelectableStatsHeader(
                     stats = stats,
+                    dayScore = selectedDayScore,
+                    burnedCaloriesKcal = burnedCalories,
+                    balanceCaloriesKcal = balanceCalories,
                     caloriesHistogram = caloriesHistogram,
                     changeMenuExpanded = showStatsWindowMenu,
                     onChangeMenuExpandedChange = { showStatsWindowMenu = it },
@@ -133,10 +177,45 @@ fun MealEntriesScreen(
                     onOpenDetail = { showDayStatsDetail = true },
                 )
             }
-            if (visibleMeals.isEmpty()) {
-                item { EmptyEntriesCard(hasSavedEntries = meals.isNotEmpty()) }
-            } else {
-                items(visibleMeals, key = { it.id }) { meal -> MealEntryRow(meal = meal, onClick = { onOpenMeal(meal) }) }
+            item {
+                MealStatsOverview(
+                    meals = meals,
+                    selectedRange = selectedStatsRange,
+                    onRangeChange = { range -> selectedStatsRangeName = range.name },
+                    zone = zone,
+                    selectedDate = LocalDate.ofInstant(now, zone).minusDays(selectedDayOffset.toLong()),
+                    onDateSelected = { date ->
+                        selectedDayOffset = ChronoUnit.DAYS.between(date, LocalDate.ofInstant(now, zone)).toInt()
+                    },
+                )
+            }
+            item {
+                TabRow(selectedTabIndex = selectedTab.ordinal) {
+                    Tab(
+                        selected = selectedTab == EntriesTab.MEALS,
+                        onClick = { onSelectTab(EntriesTab.MEALS) },
+                        text = { Text("Meals") },
+                        icon = { Icon(Icons.Outlined.RestaurantMenu, contentDescription = null) },
+                    )
+                    Tab(
+                        selected = selectedTab == EntriesTab.ACTIVITIES,
+                        onClick = { onSelectTab(EntriesTab.ACTIVITIES) },
+                        text = { Text("Activities") },
+                        icon = { Icon(Icons.AutoMirrored.Outlined.DirectionsRun, contentDescription = null) },
+                    )
+                }
+            }
+            when (selectedTab) {
+                EntriesTab.MEALS -> if (visibleMeals.isEmpty()) {
+                    item { EmptyEntriesCard(hasSavedEntries = meals.isNotEmpty(), emptyText = "No saved meals yet") }
+                } else {
+                    items(visibleMeals, key = { it.id }) { meal -> MealEntryRow(meal = meal, now = now, onClick = { onOpenMeal(meal) }) }
+                }
+                EntriesTab.ACTIVITIES -> if (visibleActivities.isEmpty()) {
+                    item { EmptyEntriesCard(hasSavedEntries = activities.isNotEmpty(), emptyText = "No saved activities yet") }
+                } else {
+                    items(visibleActivities, key = { it.id }) { activity -> ActivityEntryRow(activity = activity, now = now, onClick = { onOpenActivity(activity) }) }
+                }
             }
         }
 
@@ -145,7 +224,19 @@ fun MealEntriesScreen(
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
                 .padding(end = 24.dp, bottom = 20.dp),
-        ) { voiceButton() }
+        ) {
+            when (selectedTab) {
+                EntriesTab.MEALS -> voiceButton()
+                EntriesTab.ACTIVITIES -> ActivityAddButton(onClick = onAddActivity)
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .navigationBarsPadding()
+                .padding(start = 24.dp, bottom = 20.dp),
+        ) { SettingsActionButton(onClick = onOpenSettings) }
     }
 
     if (showStatsWindowDialog) {
@@ -194,6 +285,9 @@ private fun DayNutritionDetailDialog(label: String, stats: MealNutritionStats, o
 @Composable
 private fun SelectableStatsHeader(
     stats: LabeledMealStats,
+    dayScore: Double?,
+    burnedCaloriesKcal: Double,
+    balanceCaloriesKcal: Double,
     caloriesHistogram: List<MealCaloriesBucket>,
     changeMenuExpanded: Boolean,
     onChangeMenuExpandedChange: (Boolean) -> Unit,
@@ -231,7 +325,28 @@ private fun SelectableStatsHeader(
                     )
                 }
             }
-            Text(stats.stats.caloriesKcal.formatEnergy(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stats.stats.caloriesKcal.formatEnergy(),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                if (dayScore != null) {
+                    Text(
+                        "Score ${dayScore.roundToInt()}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+            EnergySummaryRow(label = "Burned", value = burnedCaloriesKcal.formatEnergy())
+            EnergySummaryRow(
+                label = "Balance",
+                value = if (balanceCaloriesKcal >= 0.0) "+${balanceCaloriesKcal.formatNullable()} kcal surplus" else "${balanceCaloriesKcal.formatNullable()} kcal deficit",
+                valueColor = if (balanceCaloriesKcal >= 0.0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
+            )
             Text(
                 "Protein ${stats.stats.proteinG.formatNullable()}g · Carbs ${stats.stats.carbsG.formatNullable()}g · Fat ${stats.stats.fatG.formatNullable()}g · Amount ${stats.stats.amountGml.formatNullable()}g/ml",
                 style = MaterialTheme.typography.bodySmall,
@@ -239,6 +354,14 @@ private fun SelectableStatsHeader(
             StatsHistogramSeparator()
             CaloriesHistogram(caloriesHistogram)
         }
+    }
+}
+
+@Composable
+private fun EnergySummaryRow(label: String, value: String, valueColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodySmall, color = valueColor)
     }
 }
 
@@ -438,7 +561,6 @@ private fun DayNavigator(
     onOlder: () -> Unit,
     onNewer: () -> Unit,
     onToday: () -> Unit,
-    onOpenSettings: () -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -449,13 +571,14 @@ private fun DayNavigator(
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             val primary = MaterialTheme.colorScheme.primary
+            val background = MaterialTheme.colorScheme.background
             val headerShape = MaterialTheme.shapes.medium
-            val headerBrush = remember(primary) {
+            val headerBrush = remember(primary, background) {
                 Brush.linearGradient(
                     colors = listOf(
-                        lerp(primary, Color.White, 0.22f),
+                        lerp(primary, background, 0.22f),
                         primary,
-                        lerp(primary, Color.Black, 0.28f),
+                        lerp(primary, background, 0.28f),
                     ),
                 )
             }
@@ -472,13 +595,12 @@ private fun DayNavigator(
                 ) {
                     Text(
                         label,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
                         textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
-                    SettingsActionButton(onClick = onOpenSettings, modifier = Modifier.padding(start = 8.dp))
                 }
             }
             Row(
@@ -529,8 +651,8 @@ private fun SettingsActionButton(onClick: () -> Unit, modifier: Modifier = Modif
 }
 
 @Composable
-private fun EmptyEntriesCard(hasSavedEntries: Boolean) {
-    val title = if (hasSavedEntries) "No entries in this time window" else "No saved entries yet"
+private fun EmptyEntriesCard(hasSavedEntries: Boolean, emptyText: String) {
+    val title = if (hasSavedEntries) "No entries in this time window" else emptyText
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -544,45 +666,152 @@ private fun EmptyEntriesCard(hasSavedEntries: Boolean) {
 }
 
 @Composable
-private fun MealEntryRow(meal: SavedMeal, onClick: () -> Unit) {
-    val style = mealCalorieStateStyle(meal.totals.caloriesKcal)
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = style.containerColor, contentColor = style.contentColor),
-        border = BorderStroke(1.dp, style.borderColor),
+private fun ActivityAddButton(onClick: () -> Unit) {
+    androidx.compose.material3.ExtendedFloatingActionButton(
+        onClick = onClick,
+        shape = CircleShape,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                meal.title.ifBlank { meal.query },
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                meal.query,
-                style = MaterialTheme.typography.bodySmall,
-                color = style.contentColor.copy(alpha = 0.82f),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                meal.totals.caloriesKcal.formatEnergy(),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                "Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
-                style = MaterialTheme.typography.bodySmall,
-                color = style.contentColor,
-            )
-            Text(
-                formatDate(meal.createdAtEpochMillis),
-                style = MaterialTheme.typography.labelSmall,
-                color = style.contentColor.copy(alpha = 0.65f),
-            )
+        Text("Add", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun Modifier.futureEntryHighlight(isFuture: Boolean, color: Color): Modifier {
+    if (!isFuture) return this
+    return drawBehind {
+        val cornerRadiusPx = 12.dp.toPx()
+        val cornerRadius = CornerRadius(cornerRadiusPx, cornerRadiusPx)
+        val hatchPath = Path().apply { addRoundRect(RoundRect(0f, 0f, size.width, size.height, cornerRadius)) }
+        clipPath(hatchPath) {
+            val spacingPx = 20.dp.toPx()
+            val hatchStrokeWidthPx = 2.dp.toPx()
+            var x = -size.height
+            while (x < size.width) {
+                drawLine(
+                    color = color.copy(alpha = 0.25f),
+                    start = Offset(x, size.height),
+                    end = Offset(x + size.height, 0f),
+                    strokeWidth = hatchStrokeWidthPx,
+                )
+                x += spacingPx
+            }
+        }
+        val strokeWidthPx = 2.dp.toPx()
+        val inset = strokeWidthPx / 2
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(inset, inset),
+            size = Size(size.width - strokeWidthPx, size.height - strokeWidthPx),
+            cornerRadius = cornerRadius,
+            style = Stroke(
+                width = strokeWidthPx,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(16.dp.toPx(), 12.dp.toPx()), 0f),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun MealEntryRow(meal: SavedMeal, now: Instant, onClick: () -> Unit) {
+    val style = mealCalorieStateStyle(meal.totals.caloriesKcal)
+    val isFuture = Instant.ofEpochMilli(meal.createdAtEpochMillis).isAfter(now)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+            colors = CardDefaults.cardColors(containerColor = style.containerColor, contentColor = style.contentColor),
+            border = if (isFuture) null else BorderStroke(1.dp, style.borderColor),
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    meal.title.ifBlank { meal.query },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    meal.query,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style.contentColor.copy(alpha = 0.82f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    meal.totals.caloriesKcal.formatEnergy(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    "Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style.contentColor,
+                )
+                Text(
+                    formatDate(meal.createdAtEpochMillis),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = style.contentColor.copy(alpha = 0.65f),
+                )
+            }
+        }
+        if (isFuture) {
+            Box(modifier = Modifier.matchParentSize().futureEntryHighlight(true, style.borderColor))
         }
     }
+}
+
+@Composable
+private fun ActivityEntryRow(activity: SavedActivity, now: Instant, onClick: () -> Unit) {
+    val style = activityCalorieStateStyle(activity.caloriesBurnedKcal)
+    val isFuture = Instant.ofEpochMilli(activity.createdAtEpochMillis).isAfter(now)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Card(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+            colors = CardDefaults.cardColors(containerColor = style.containerColor, contentColor = style.contentColor),
+            border = if (isFuture) null else BorderStroke(1.dp, style.borderColor),
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(activity.type.activityTypeIcon(), contentDescription = null)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        activity.title.ifBlank { activity.type.displayName() },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (activity.description.isNotBlank()) {
+                        Text(
+                            activity.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = style.contentColor.copy(alpha = 0.82f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        "${activity.caloriesBurnedKcal.formatNullable()} kcal · ${formatDuration(activity.durationMinutes)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = style.contentColor.copy(alpha = 0.82f),
+                    )
+                }
+            }
+        }
+        if (isFuture) {
+            Box(modifier = Modifier.matchParentSize().futureEntryHighlight(true, style.borderColor))
+        }
+    }
+}
+
+private fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fold(
+    DailyNutritionTotals(0.0, 0.0, 0.0, 0.0),
+) { acc, meal ->
+    acc.copy(
+        caloriesKcal = acc.caloriesKcal + (meal.totals.caloriesKcal ?: 0.0),
+        proteinG = acc.proteinG + (meal.totals.proteinG ?: 0.0),
+        carbsG = acc.carbsG + (meal.totals.carbsG ?: 0.0),
+        fatG = acc.fatG + (meal.totals.fatG ?: 0.0),
+    )
 }
 
 private fun Double?.formatEnergy(): String = this?.let { kcal ->

@@ -10,6 +10,11 @@ gradle-app.setting
 # Local machine configuration
 local.properties
 
+# Agent tool local/generated state
+.claude/settings.local.json
+.opencode/node_modules/
+.opencode/memory/
+
 # Android Studio / IntelliJ
 *.iml
 .idea/*

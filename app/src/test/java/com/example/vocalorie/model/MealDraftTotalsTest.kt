@@ -8,7 +8,6 @@ class MealDraftTotalsTest {
     @Test
     fun sumsEditableItemNutritionIntoMealTotals() {
         val draft = sampleDraft().copy(
-            source = "https://example.com/meal",
             items = listOf(
                 sampleItem().copy(
                     amountGml = "100.5",
@@ -45,7 +44,6 @@ class MealDraftTotalsTest {
         assertEquals("3.25", updated.saturatedFatG)
         assertEquals("2", updated.sugarG)
         assertEquals("0.3", updated.saltG)
-        assertEquals("https://example.com/meal", updated.source)
     }
 
     @Test
@@ -177,7 +175,6 @@ class MealDraftTotalsTest {
         saturatedFatG = "999",
         sugarG = "999",
         saltG = "999",
-        source = "",
         assumptionsText = "",
         warningsText = "",
         confidence = ConfidenceLevel.MEDIUM,

@@ -88,7 +88,6 @@ fun MealEntryOverlay(
                         query = meal.query,
                         items = meal.items,
                         totals = meal.totals,
-                        source = meal.source,
                         addedAtEpochMillis = meal.createdAtEpochMillis,
                     )
                 }

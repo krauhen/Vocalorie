@@ -10,10 +10,10 @@ import kotlinx.serialization.Serializable
 data class NutritionAgentResult(
     @property:LLMDescription("The original user food query.")
     val query: String,
+    @property:LLMDescription("A short, natural-language title for the whole meal, e.g. \"Chicken Caesar Salad\".")
+    val title: String,
     val items: List<FoodItemEstimate>,
     val totals: NutritionTotals,
-    @property:LLMDescription("Source URL for online nutrition data; source must be a concrete http/https food-entry page URL when available, blank if no URL was used or only a generic homepage was available. Do not put plain source names like USDA without a URL.")
-    val source: String,
     @property:LLMDescription("Assumptions made while estimating nutrition.")
     val assumptions: List<String>,
     @property:LLMDescription("Warnings and uncertainty notes for the user.")
@@ -36,6 +36,7 @@ data class FoodItemEstimate(
     val saturatedFatG: Double? = null,
     val sugarG: Double? = null,
     val saltG: Double? = null,
+    @property:LLMDescription("source must be a concrete http/https food-entry page URL, or empty if no confident URL is available")
     val source: String = "",
     val reasoning: String = "",
 )

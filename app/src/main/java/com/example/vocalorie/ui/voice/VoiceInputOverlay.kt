@@ -96,7 +96,7 @@ fun VoiceInputOverlay(
         contentColor = MaterialTheme.colorScheme.onPrimary,
     ) {
         Text(
-            "Add meal",
+            "Add",
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,

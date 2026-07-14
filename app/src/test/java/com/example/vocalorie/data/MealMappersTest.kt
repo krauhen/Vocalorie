@@ -11,53 +11,21 @@ import org.junit.Test
 
 class MealMappersTest {
     @Test
-    fun amountOnlyQueryUsesFirstItemNameAsEditableTitle() {
-        val result = sampleResult().copy(
-            query = "100g",
-            items = listOf(
-                sampleResult().items.single().copy(
-                    name = "cucumber",
-                    quantity = "100g",
-                ),
-            ),
-        )
+    fun aiGeneratedTitlePreFillsEditableDraft() {
+        val result = sampleResult(title = "Egg Breakfast")
 
         val draft = result.toEditableDraft()
 
-        assertEquals("cucumber", draft.title)
+        assertEquals("Egg Breakfast", draft.title)
     }
 
     @Test
-    fun promptLikeQueryDoesNotBecomeEditableTitleWhenItemNameIsKnown() {
-        val result = sampleResult().copy(
-            query = "Estimate this meal from the attached photo",
-            items = listOf(
-                sampleResult().items.single().copy(
-                    name = "cucumber",
-                    quantity = "100g",
-                ),
-            ),
-        )
+    fun manualTitleEditIsPreservedOnReSave() {
+        val draft = sampleResult(title = "Egg Breakfast").toEditableDraft().copy(title = "My custom title")
 
-        val draft = result.toEditableDraft()
+        val saved = draft.toEntity(createdAtEpochMillis = 123L).toSavedMeal()
 
-        assertEquals("cucumber", draft.title)
-    }
-
-    @Test
-    fun genericHomepageSourceDoesNotOverrideSpecificItemSource() {
-        val result = sampleResult().copy(
-            source = "https://fdc.nal.usda.gov/",
-            items = listOf(
-                sampleResult().items.single().copy(
-                    source = "https://fdc.nal.usda.gov/fdc-app.html#/food-details/12345/nutrients",
-                ),
-            ),
-        )
-
-        val draft = result.toEditableDraft()
-
-        assertEquals("https://fdc.nal.usda.gov/fdc-app.html#/food-details/12345/nutrients", draft.source)
+        assertEquals("My custom title", saved.title)
     }
 
     @Test
@@ -75,7 +43,7 @@ class MealMappersTest {
             ),
         ).toEditableDraft()
 
-        assertEquals("large egg", draft.title)
+        assertEquals("Egg Breakfast", draft.title)
         assertEquals("2 eggs", draft.query)
         assertEquals("150", draft.caloriesKcal)
         assertEquals("100", draft.amountGml)
@@ -85,7 +53,6 @@ class MealMappersTest {
         assertEquals("3.2", draft.saturatedFatG)
         assertEquals("0.4", draft.sugarG)
         assertEquals("0.3", draft.saltG)
-        assertEquals("https://fdc.nal.usda.gov/fdc-app.html#/food-details/748967/nutrients", draft.source)
         assertEquals("large egg", draft.items.single().name)
         assertEquals("100", draft.items.single().amountGml)
         assertEquals("3.2", draft.items.single().saturatedFatG)
@@ -102,7 +69,7 @@ class MealMappersTest {
 
         assertEquals(7L, saved.id)
         assertEquals(123L, saved.createdAtEpochMillis)
-        assertEquals("large egg", saved.title)
+        assertEquals("Egg Breakfast", saved.title)
         assertEquals(150.0, saved.totals.caloriesKcal!!, 0.0)
         assertEquals(10.0, saved.totals.fatG!!, 0.0)
         assertEquals(100.0, saved.totals.amountGml!!, 0.0)
@@ -110,7 +77,6 @@ class MealMappersTest {
         assertEquals(3.2, saved.totals.saturatedFatG!!, 0.0)
         assertEquals(0.4, saved.totals.sugarG!!, 0.0)
         assertEquals(0.3, saved.totals.saltG!!, 0.0)
-        assertEquals("https://fdc.nal.usda.gov/fdc-app.html#/food-details/748967/nutrients", saved.source)
         assertEquals(ConfidenceLevel.MEDIUM, saved.confidence)
         assertEquals("large egg", saved.items.single().name)
     }
@@ -152,9 +118,8 @@ class MealMappersTest {
 
         assertEquals(42L, updated.id)
         assertEquals(456L, updated.createdAtEpochMillis)
-        assertEquals("large egg", updated.title)
+        assertEquals("Egg Breakfast", updated.title)
         assertEquals("updated eggs", updated.query)
-        assertEquals("https://fdc.nal.usda.gov/fdc-app.html#/food-details/748967/nutrients", updated.source)
     }
 
     @Test
@@ -168,19 +133,16 @@ class MealMappersTest {
     }
 
     @Test
-    fun sourceFieldsTrimAndBlankNonHttpUrls() {
+    fun itemSourceIsTrimmedAndPreserved() {
         val result = sampleResult().copy(
-            source = " USDA FoodData Central ",
             items = listOf(sampleResult().items.single().copy(source = " https://example.com/item ")),
         )
         val draft = result.toEditableDraft()
 
-        assertEquals("https://example.com/item", draft.source)
         assertEquals("https://example.com/item", draft.items.single().source)
 
-        val saved = draft.copy(source = " USDA FoodData Central ").toEntity(createdAtEpochMillis = 123L).toSavedMeal()
+        val saved = draft.toEntity(createdAtEpochMillis = 123L).toSavedMeal()
 
-        assertEquals("", saved.source)
         assertEquals("https://example.com/item", saved.items.single().source)
     }
 
@@ -334,8 +296,9 @@ class MealMappersTest {
         assertEquals(listOf(1L), matches.map { it.id })
     }
 
-    private fun sampleResult() = NutritionAgentResult(
+    private fun sampleResult(title: String = "Egg Breakfast") = NutritionAgentResult(
         query = "2 eggs",
+        title = title,
         items = listOf(
             FoodItemEstimate(
                 name = "large egg",
@@ -362,7 +325,6 @@ class MealMappersTest {
             sugarG = 0.4,
             saltG = 0.3,
         ),
-        source = "https://fdc.nal.usda.gov/fdc-app.html#/food-details/748967/nutrients",
         assumptions = listOf("assumption one", "assumption two"),
         warnings = listOf("review before saving"),
         confidence = ConfidenceLevel.MEDIUM,
@@ -410,7 +372,6 @@ class MealMappersTest {
             sugarG = null,
             saltG = null,
         ),
-        source = "",
         assumptions = emptyList(),
         warnings = emptyList(),
         confidence = ConfidenceLevel.MEDIUM,

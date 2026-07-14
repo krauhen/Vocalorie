@@ -1,7 +1,9 @@
 package com.example.vocalorie.ui.entries
 
 import com.example.vocalorie.model.ConfidenceLevel
+import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.NutritionTotals
+import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.SavedMeal
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -16,16 +18,16 @@ class MealTimeWindowsTest {
     private val now: Instant = LocalDateTime.of(2026, 6, 30, 15, 0).atZone(zone).toInstant()
 
     @Test
-    fun todayOffsetIncludesLocalCalendarTodayAndExcludesPreviousDayAndFutureMeals() {
+    fun todayOffsetIncludesLocalCalendarTodayAndSameDayFutureMeals() {
         val startOfToday = LocalDateTime.of(2026, 6, 30, 0, 0).atZone(zone).toInstant()
         val today = meal(1, now.minusSeconds(2 * 60 * 60))
         val startBoundary = meal(2, startOfToday)
         val previousDayWithin24Hours = meal(3, startOfToday.minusSeconds(1))
-        val future = meal(4, now.plusSeconds(1))
+        val sameDayFuture = meal(4, now.plusSeconds(1))
 
-        val visible = filterMealsForDay(listOf(today, startBoundary, previousDayWithin24Hours, future), dayOffset = 0, now = now, zone = zone)
+        val visible = filterMealsForDay(listOf(today, startBoundary, previousDayWithin24Hours, sameDayFuture), dayOffset = 0, now = now, zone = zone)
 
-        assertEquals(listOf(1L, 2L), visible.map { it.id })
+        assertEquals(listOf(4L, 1L, 2L), visible.map { it.id })
     }
 
     @Test
@@ -44,12 +46,23 @@ class MealTimeWindowsTest {
     }
 
     @Test
+    fun activitiesUseTheSameSelectedDayFilteringAndSorting() {
+        val todayEight = activity(1, LocalDateTime.of(2026, 6, 30, 8, 0).atZone(zone).toInstant())
+        val todayNine = activity(2, LocalDateTime.of(2026, 6, 30, 9, 0).atZone(zone).toInstant())
+        val yesterdayNine = activity(3, LocalDateTime.of(2026, 6, 29, 9, 0).atZone(zone).toInstant())
+
+        val visible = filterActivitiesForDay(listOf(todayNine, todayEight, yesterdayNine), dayOffset = 0, now = now, zone = zone)
+
+        assertEquals(listOf(2L, 1L), visible.map { it.id })
+    }
+
+    @Test
     fun todayVisibleMealsAreIndependentFromLast24HourStats() {
         val lastNightWithin24Hours = meal(1, now.minusSeconds(16 * 60 * 60), calories = 100.0)
         val currentDay = meal(2, now.minusSeconds(2 * 60 * 60), calories = 85.0)
         val olderThan24Hours = meal(3, now.minusSeconds(25 * 60 * 60), calories = 500.0)
-        val future = meal(4, now.plusSeconds(1), calories = 300.0)
-        val meals = listOf(lastNightWithin24Hours, currentDay, olderThan24Hours, future)
+        val sameDayFuture = meal(4, now.plusSeconds(1), calories = 300.0)
+        val meals = listOf(lastNightWithin24Hours, currentDay, olderThan24Hours, sameDayFuture)
 
         val visible = filterMealsForDay(meals, dayOffset = 0, now = now, zone = zone)
         val last24HourStats = selectedTimelineStats(
@@ -59,7 +72,7 @@ class MealTimeWindowsTest {
             selection = MealStatsWindowSelection(mode = MealStatsWindowMode.LAST_24_HOURS),
         ).stats
 
-        assertEquals(listOf(2L), visible.map { it.id })
+        assertEquals(listOf(4L, 2L), visible.map { it.id })
         assertEquals(185.0, last24HourStats.caloriesKcal, 0.0)
     }
 
@@ -69,6 +82,41 @@ class MealTimeWindowsTest {
 
         assertTrue(window.label.startsWith("Today"))
         assertEquals("Today · 30.06.2026", window.label)
+    }
+
+    @Test
+    fun formatDurationProducesHoursAndMinutes() {
+        assertEquals("0m", formatDuration(0))
+        assertEquals("45m", formatDuration(45))
+        assertEquals("1h", formatDuration(60))
+        assertEquals("1h 1m", formatDuration(61))
+    }
+
+    @Test
+    fun dailyEnergyBalanceReturnsSignedDifference() {
+        assertEquals(-400.0, dailyEnergyBalance(2000.0, 2400.0, 0.0), 0.0)
+        assertEquals(400.0, dailyEnergyBalance(2800.0, 2400.0, 0.0), 0.0)
+        assertEquals(-300.0, dailyEnergyBalance(2400.0, 2400.0, 300.0), 0.0)
+    }
+
+    @Test
+    fun negativeDayOffsetNavigatesToTomorrow() {
+        val window = selectedDayWindow(dayOffset = -1, now = now, zone = zone)
+        val tomorrowStart = LocalDateTime.of(2026, 7, 1, 0, 0).atZone(zone).toInstant()
+        val dayAfterTomorrowStart = LocalDateTime.of(2026, 7, 2, 0, 0).atZone(zone).toInstant()
+
+        assertEquals(tomorrowStart, window.startInclusive)
+        assertEquals(dayAfterTomorrowStart, window.end)
+        assertEquals(false, window.endInclusive)
+    }
+
+    @Test
+    fun todayWindowEndIsEndOfLocalDayNotNow() {
+        val window = selectedDayWindow(dayOffset = 0, now = now, zone = zone)
+        val endOfToday = LocalDateTime.of(2026, 7, 1, 0, 0).atZone(zone).toInstant()
+
+        assertEquals(endOfToday, window.end)
+        assertTrue(window.end.isAfter(now))
     }
 
     @Test
@@ -345,10 +393,19 @@ class MealTimeWindowsTest {
             sugarG = sugar,
             saltG = salt,
         ),
-        source = "",
         assumptions = emptyList(),
         warnings = emptyList(),
         confidence = ConfidenceLevel.MEDIUM,
         needsHumanReview = false,
+    )
+
+    private fun activity(id: Long, createdAt: Instant) = SavedActivity(
+        id = id,
+        createdAtEpochMillis = createdAt.toEpochMilli(),
+        type = ActivityType.RUNNING,
+        title = "activity $id",
+        description = "",
+        caloriesBurnedKcal = 100.0,
+        durationMinutes = 30,
     )
 }

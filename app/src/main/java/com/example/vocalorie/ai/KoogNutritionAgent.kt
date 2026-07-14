@@ -35,11 +35,17 @@ object KoogNutritionAgent {
         Meal totals are computed by the app from item rows; estimate item values only.
         Use grams and milliliters as approximately equivalent for amount summing.
         Do not return calories without macros and the nutrition-label fields.
-        Prefer concrete food-entry source URLs over generic database homepages; if you only have a homepage like https://fdc.nal.usda.gov/, leave source blank.
+
+        For food composition data, prefer this priority order of databases: German BLS, USDA, CoFID, Ciqual, Frida, AFCD, Swiss Food Composition Database, NEVO, Livsmedelsverket, CNF, Open Food Facts, FAO-INFOODS.
+        Every food item's source must be a concrete http/https food-entry page URL from one of the recommended databases. If you cannot confidently identify a real URL for an item, leave source empty rather than naming a database.
+
+        Split composite meals into individual food items. For example, estimate "coffee with milk" as two items: "black coffee" and "milk" with separate nutrition values.
+
+        Generate a short, natural title (2-5 words) summarizing the whole meal, in German, e.g. "Hähnchen Caesar Salat".
+        Always reply in German. Use German for all quantity descriptions, reasoning, assumptions, and warnings, regardless of the user's query language.
         Always mark needsHumanReview as true.
         The user may write the query in German, including German decimal commas like 1,5 and German units such as EL (tablespoon), TL (teaspoon), Stück (piece), Scheibe (slice), Prise (pinch), and Portion (portion); interpret these the same as their English equivalents when estimating amountGml.
         Recognize German food names and descriptions directly without needing to translate them first.
-        Reply in the same language as the user's text query for quantity, reasoning, assumptions, and warnings: German query in, German text out; English query in, English text out.
         """.trimIndent()
 
     val REQUIRED_SYSTEM_PROMPT_PHRASES: List<String> = listOf(
@@ -51,7 +57,12 @@ object KoogNutritionAgent {
         "item values only",
         "combine the photo with the full text query",
         "German decimal commas",
-        "Reply in the same language as the user's text query",
+        "German BLS",
+        "Every food item's source must be a concrete http/https food-entry page URL",
+        "leave source empty rather than naming a database",
+        "Split composite meals into individual food items",
+        "Generate a short, natural title",
+        "Always reply in German",
     )
 
     fun missingRequiredSystemPromptPhrases(prompt: String): List<String> =
@@ -129,6 +140,7 @@ object KoogNutritionAgent {
 
     private fun sampleResult(query: String) = NutritionAgentResult(
         query = query,
+        title = "Spiegeleier",
         items = listOf(
             FoodItemEstimate(
                 name = "large egg",
@@ -155,7 +167,6 @@ object KoogNutritionAgent {
             sugarG = 0.4,
             saltG = 0.3,
         ),
-        source = "https://fdc.nal.usda.gov/fdc-app.html#/food-details/748967/nutrients",
         assumptions = listOf("Foods use common serving sizes unless the query says otherwise."),
         warnings = listOf("Nutrition values are estimates and require human review."),
         confidence = ConfidenceLevel.MEDIUM,
@@ -164,6 +175,7 @@ object KoogNutritionAgent {
 
     private fun sampleCucumberResult(query: String) = NutritionAgentResult(
         query = query,
+        title = "Gurke",
         items = listOf(
             FoodItemEstimate(
                 name = "cucumber",
@@ -190,7 +202,6 @@ object KoogNutritionAgent {
             sugarG = 1.7,
             saltG = 0.0,
         ),
-        source = "https://fdc.nal.usda.gov/fdc-app.html#/food-details/11206/nutrients",
         assumptions = listOf("Vegetables can use zero saturated fat when the nutrition source supports it."),
         warnings = listOf("Nutrition values are estimates and require human review."),
         confidence = ConfidenceLevel.MEDIUM,

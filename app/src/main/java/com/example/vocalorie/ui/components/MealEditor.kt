@@ -109,14 +109,6 @@ fun EditableMealEditor(
                     )
                 },
             )
-            OutlinedTextField(
-                value = draft.source,
-                onValueChange = { onDraftChange(draft.copy(source = it)) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Source URL") },
-                enabled = enabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            )
 
             PortionScalingControls(
                 draft = draft,
@@ -282,7 +274,6 @@ fun ReadOnlyMealSummary(
     query: String,
     items: List<FoodItemEstimate>,
     totals: NutritionTotals,
-    source: String,
     addedAtEpochMillis: Long,
     modifier: Modifier = Modifier,
 ) {
@@ -292,7 +283,7 @@ fun ReadOnlyMealSummary(
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         Text(query, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         NutritionRow("Added at", formatDate(addedAtEpochMillis))
-        NutritionLabel(totals, source)
+        NutritionLabel(totals)
 
         if (items.isNotEmpty()) {
             SectionTitle("Items")
@@ -518,7 +509,7 @@ fun NutritionLabelRows(
 }
 
 @Composable
-private fun NutritionLabel(totals: NutritionTotals, source: String) {
+private fun NutritionLabel(totals: NutritionTotals) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         NutritionLabelRows(
             amountGml = totals.amountGml,
@@ -530,7 +521,6 @@ private fun NutritionLabel(totals: NutritionTotals, source: String) {
             proteinG = totals.proteinG,
             saltG = totals.saltG,
         )
-        if (source.isNotBlank()) SourceUrlRow("Source URL", source)
     }
 }
 

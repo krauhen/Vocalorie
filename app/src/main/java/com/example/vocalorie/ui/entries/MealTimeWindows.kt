@@ -2,6 +2,7 @@ package com.example.vocalorie.ui.entries
 
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.model.SavedActivity
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -63,15 +64,14 @@ data class MealCaloriesBucket(
 )
 
 fun selectedDayWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindow {
-    require(dayOffset >= 0) { "dayOffset must be non-negative" }
     val date = LocalDate.ofInstant(now, zone).minusDays(dayOffset.toLong())
 
     if (dayOffset == 0) {
         return MealTimeWindow(
             label = dateLabel(dayOffset, date),
             startInclusive = date.atStartOfDay(zone).toInstant(),
-            end = now,
-            endInclusive = true,
+            end = date.plusDays(1).atStartOfDay(zone).toInstant(),
+            endInclusive = false,
         )
     }
 
@@ -84,10 +84,11 @@ fun selectedDayWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindo
 }
 
 fun filterMealsForDay(meals: List<SavedMeal>, dayOffset: Int, now: Instant, zone: ZoneId): List<SavedMeal> {
-    val window = selectedDayWindow(dayOffset, now, zone)
-    return meals
-        .filter { window.contains(it.createdAtEpochMillis) }
-        .sortedByDescending { it.createdAtEpochMillis }
+    return filterEntriesForDay(meals, dayOffset, now, zone) { it.createdAtEpochMillis }
+}
+
+fun filterActivitiesForDay(activities: List<SavedActivity>, dayOffset: Int, now: Instant, zone: ZoneId): List<SavedActivity> {
+    return filterEntriesForDay(activities, dayOffset, now, zone) { it.createdAtEpochMillis }
 }
 
 fun selectedTimelineStats(
@@ -147,7 +148,6 @@ private fun selectedCaloriesHistogramForWindow(meals: List<SavedMeal>, window: M
 }
 
 private fun selectedDayHistogramWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindow {
-    require(dayOffset >= 0) { "dayOffset must be non-negative" }
     val date = LocalDate.ofInstant(now, zone).minusDays(dayOffset.toLong())
     return MealTimeWindow(
         label = dateLabel(dayOffset, date),
@@ -155,6 +155,19 @@ private fun selectedDayHistogramWindow(dayOffset: Int, now: Instant, zone: ZoneI
         end = date.plusDays(1).atStartOfDay(zone).toInstant(),
         endInclusive = false,
     )
+}
+
+private inline fun <T> filterEntriesForDay(
+    entries: List<T>,
+    dayOffset: Int,
+    now: Instant,
+    zone: ZoneId,
+    crossinline createdAtEpochMillis: (T) -> Long,
+): List<T> {
+    val window = selectedDayWindow(dayOffset, now, zone)
+    return entries
+        .filter { window.contains(createdAtEpochMillis(it)) }
+        .sortedByDescending { createdAtEpochMillis(it) }
 }
 
 fun selectedStatsWindow(selection: MealStatsWindowSelection, now: Instant, zone: ZoneId, selectedDayOffset: Int = 0): MealTimeWindow {
@@ -194,6 +207,20 @@ fun formatRollingStatsLabel(duration: Duration): String {
     }
     return "Last $durationLabel"
 }
+
+fun formatDuration(minutes: Int): String {
+    if (minutes <= 0) return "0m"
+    val hours = minutes / 60
+    val remainingMinutes = minutes % 60
+    return when {
+        hours == 0 -> "${remainingMinutes}m"
+        remainingMinutes == 0 -> "${hours}h"
+        else -> "${hours}h ${remainingMinutes}m"
+    }
+}
+
+fun dailyEnergyBalance(consumedKcal: Double, baseBurnKcal: Double, activitiesBurnedKcal: Double): Double =
+    consumedKcal - baseBurnKcal - activitiesBurnedKcal
 
 private fun List<SavedMeal>.sumNutrition(): MealNutritionStats = fold(MealNutritionStats(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)) { acc, meal ->
     val totals: NutritionTotals = meal.totals

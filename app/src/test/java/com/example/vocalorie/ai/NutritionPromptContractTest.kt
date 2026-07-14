@@ -20,7 +20,12 @@ class NutritionPromptContractTest {
         assertTrue(promptSource.contains("combine the photo with the full text query"))
         assertTrue(promptSource.contains("Use that amount together with the image."))
         assertTrue(promptSource.contains("German decimal commas"))
-        assertTrue(promptSource.contains("Reply in the same language as the user's text query"))
+        assertTrue(promptSource.contains("German BLS"))
+        assertTrue(promptSource.contains("Every food item's source must be a concrete http/https food-entry page URL"))
+        assertTrue(promptSource.contains("leave source empty rather than naming a database"))
+        assertTrue(promptSource.contains("Split composite meals into individual food items"))
+        assertTrue(promptSource.contains("Generate a short, natural title"))
+        assertTrue(promptSource.contains("Always reply in German"))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
         assertTrue(promptSource.contains("Estimate this meal from the attached photo"))
         assertTrue(promptSource.contains("imageAttachments.forEach { image(it.image) }"))
@@ -28,6 +33,7 @@ class NutritionPromptContractTest {
 
         assertTrue(dtoSource.contains("A structured nutrition estimate"))
         assertTrue(dtoSource.contains("source must be a concrete http/https food-entry page URL"))
+        assertTrue(dtoSource.contains("A short, natural-language title for the whole meal"))
         assertFalse(dtoSource.contains("Ignored by the app"))
         assertFalse(dtoSource.contains("Normalized food item name."))
         assertFalse(dtoSource.contains("Required estimated calories in kcal."))
@@ -39,20 +45,24 @@ class NutritionPromptContractTest {
     }
 
     @Test
-    fun roomDatabaseRegistersAdditiveMigrationsForNutritionLabelAndAmountFields() {
+    fun roomDatabaseRegistersMigrationsIncludingV6ActivitiesTable() {
         val databaseSource = source("app/src/main/java/com/example/vocalorie/data/VocalorieDatabase.java")
         val entitySource = source("app/src/main/java/com/example/vocalorie/data/MealEntity.kt")
 
-        assertTrue(databaseSource.contains("version = 4"))
+        assertTrue(databaseSource.contains("version = 7"))
         assertTrue(databaseSource.contains("Migration(1, 2)"))
         assertTrue(databaseSource.contains("Migration(2, 3)"))
         assertTrue(databaseSource.contains("Migration(3, 4)"))
+        assertTrue(databaseSource.contains("MIGRATION_4_5"))
+        assertTrue(databaseSource.contains("MIGRATION_5_6"))
+        assertTrue(databaseSource.contains("MIGRATION_6_7"))
+        assertTrue(databaseSource.contains("ALTER TABLE activities ADD COLUMN stepsCount INTEGER"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN saturatedFatG REAL"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN sugarG REAL"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN saltG REAL"))
-        assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN source TEXT"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN amountGml REAL"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN title TEXT NOT NULL DEFAULT ''"))
+        assertTrue(databaseSource.contains("CREATE TABLE activities"))
         assertFalse(databaseSource.contains("fallbackToDestructiveMigration"))
 
         assertTrue(entitySource.contains("val title: String"))
@@ -60,7 +70,6 @@ class NutritionPromptContractTest {
         assertTrue(entitySource.contains("val saturatedFatG: Double?"))
         assertTrue(entitySource.contains("val sugarG: Double?"))
         assertTrue(entitySource.contains("val saltG: Double?"))
-        assertTrue(entitySource.contains("val source: String?"))
     }
 
     @Test

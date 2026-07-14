@@ -1,14 +1,20 @@
 package com.example.vocalorie.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -32,6 +38,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -40,13 +48,34 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.settings.OpenAiModelChoice
+import com.example.vocalorie.settings.ThemeColors
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.settings.ToolSettingsLabels
 import com.example.vocalorie.ui.components.SectionTitle
+import com.github.skydoves.colorpicker.compose.BrightnessSlider
+import com.github.skydoves.colorpicker.compose.HsvColorPicker
+import com.github.skydoves.colorpicker.compose.rememberColorPickerController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    themeColors: ThemeColors,
+    onSavePrimaryColor: (Color) -> Unit,
+    onSaveSecondaryColor: (Color) -> Unit,
+    onSaveAccentColor: (Color) -> Unit,
+    onSaveBackgroundColor: (Color) -> Unit,
+    onSaveSurfaceColor: (Color) -> Unit,
+    onSaveSurfaceVariantColor: (Color) -> Unit,
+    onSaveOutlineColor: (Color) -> Unit,
+    activityColors: ThemeColors,
+    onSaveActivityPrimaryColor: (Color) -> Unit,
+    onSaveActivitySecondaryColor: (Color) -> Unit,
+    onSaveActivityAccentColor: (Color) -> Unit,
+    onSaveActivityOutlineColor: (Color) -> Unit,
+    baseCaloriesBurned: Int,
+    onSaveBaseCaloriesBurned: (String) -> Unit,
+    kcalPerStep: Double,
+    onSaveKcalPerStep: (String) -> Unit,
     savedKeyLabel: String?,
     runtimeApiKey: String,
     onRuntimeApiKeyChange: (String) -> Unit,
@@ -75,6 +104,23 @@ fun SettingsScreen(
     ) { padding ->
         SettingsContent(
             padding = padding,
+            themeColors = themeColors,
+            onSavePrimaryColor = onSavePrimaryColor,
+            onSaveSecondaryColor = onSaveSecondaryColor,
+            onSaveAccentColor = onSaveAccentColor,
+            onSaveBackgroundColor = onSaveBackgroundColor,
+            onSaveSurfaceColor = onSaveSurfaceColor,
+            onSaveSurfaceVariantColor = onSaveSurfaceVariantColor,
+            onSaveOutlineColor = onSaveOutlineColor,
+            activityColors = activityColors,
+            onSaveActivityPrimaryColor = onSaveActivityPrimaryColor,
+            onSaveActivitySecondaryColor = onSaveActivitySecondaryColor,
+            onSaveActivityAccentColor = onSaveActivityAccentColor,
+            onSaveActivityOutlineColor = onSaveActivityOutlineColor,
+            baseCaloriesBurned = baseCaloriesBurned,
+            onSaveBaseCaloriesBurned = onSaveBaseCaloriesBurned,
+            kcalPerStep = kcalPerStep,
+            onSaveKcalPerStep = onSaveKcalPerStep,
             savedKeyLabel = savedKeyLabel,
             runtimeApiKey = runtimeApiKey,
             onRuntimeApiKeyChange = onRuntimeApiKeyChange,
@@ -98,6 +144,23 @@ fun SettingsScreen(
 @Composable
 private fun SettingsContent(
     padding: PaddingValues,
+    themeColors: ThemeColors,
+    onSavePrimaryColor: (Color) -> Unit,
+    onSaveSecondaryColor: (Color) -> Unit,
+    onSaveAccentColor: (Color) -> Unit,
+    onSaveBackgroundColor: (Color) -> Unit,
+    onSaveSurfaceColor: (Color) -> Unit,
+    onSaveSurfaceVariantColor: (Color) -> Unit,
+    onSaveOutlineColor: (Color) -> Unit,
+    activityColors: ThemeColors,
+    onSaveActivityPrimaryColor: (Color) -> Unit,
+    onSaveActivitySecondaryColor: (Color) -> Unit,
+    onSaveActivityAccentColor: (Color) -> Unit,
+    onSaveActivityOutlineColor: (Color) -> Unit,
+    baseCaloriesBurned: Int,
+    onSaveBaseCaloriesBurned: (String) -> Unit,
+    kcalPerStep: Double,
+    onSaveKcalPerStep: (String) -> Unit,
     savedKeyLabel: String?,
     runtimeApiKey: String,
     onRuntimeApiKeyChange: (String) -> Unit,
@@ -115,6 +178,22 @@ private fun SettingsContent(
     onSaveSystemPrompt: (String) -> Unit,
     onResetSystemPrompt: () -> Unit,
 ) {
+    var primaryColor by remember(themeColors.primary) { mutableStateOf(themeColors.primary) }
+    var secondaryColor by remember(themeColors.secondary) { mutableStateOf(themeColors.secondary) }
+    var accentColor by remember(themeColors.accent) { mutableStateOf(themeColors.accent) }
+    var backgroundColor by remember(themeColors.background) { mutableStateOf(themeColors.background) }
+    var surfaceColor by remember(themeColors.surface) { mutableStateOf(themeColors.surface) }
+    var surfaceVariantColor by remember(themeColors.surfaceVariant) { mutableStateOf(themeColors.surfaceVariant) }
+    var outlineColor by remember(themeColors.outline) { mutableStateOf(themeColors.outline) }
+    var activityPrimaryColor by remember(activityColors.primary) { mutableStateOf(activityColors.primary) }
+    var activitySecondaryColor by remember(activityColors.secondary) { mutableStateOf(activityColors.secondary) }
+    var activityAccentColor by remember(activityColors.accent) { mutableStateOf(activityColors.accent) }
+    var activityOutlineColor by remember(activityColors.outline) { mutableStateOf(activityColors.outline) }
+    var baseCaloriesBurnedInput by remember(baseCaloriesBurned) { mutableStateOf(baseCaloriesBurned.toString()) }
+    // Edited as kcal per 1,000 steps (friendlier than tiny per-step decimals).
+    var kcalPer1000StepsInput by remember(kcalPerStep) {
+        mutableStateOf((kcalPerStep * 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
+    }
     var newApiKey by remember { mutableStateOf("") }
     var newBraveApiKey by remember { mutableStateOf("") }
     var maxResearchToolCallsInput by remember { mutableStateOf(toolSettings.maxResearchToolCalls.toString()) }
@@ -141,6 +220,132 @@ private fun SettingsContent(
         modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        SectionTitle("Appearance")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                ColorPickerRow(
+                    label = "Background",
+                    color = backgroundColor,
+                    enabled = enabled,
+                    onColorSelected = { backgroundColor = it; onSaveBackgroundColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Surface",
+                    color = surfaceColor,
+                    enabled = enabled,
+                    onColorSelected = { surfaceColor = it; onSaveSurfaceColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Surface variant",
+                    color = surfaceVariantColor,
+                    enabled = enabled,
+                    onColorSelected = { surfaceVariantColor = it; onSaveSurfaceVariantColor(it) },
+                )
+            }
+        }
+
+        SectionTitle("Meal Appearance")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                ColorPickerRow(
+                    label = "Primary",
+                    color = primaryColor,
+                    enabled = enabled,
+                    onColorSelected = { primaryColor = it; onSavePrimaryColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Secondary",
+                    color = secondaryColor,
+                    enabled = enabled,
+                    onColorSelected = { secondaryColor = it; onSaveSecondaryColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Accent",
+                    color = accentColor,
+                    enabled = enabled,
+                    onColorSelected = { accentColor = it; onSaveAccentColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Outline",
+                    color = outlineColor,
+                    enabled = enabled,
+                    onColorSelected = { outlineColor = it; onSaveOutlineColor(it) },
+                )
+            }
+        }
+
+        SectionTitle("Activity Appearance")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                ColorPickerRow(
+                    label = "Primary",
+                    color = activityPrimaryColor,
+                    enabled = enabled,
+                    onColorSelected = { activityPrimaryColor = it; onSaveActivityPrimaryColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Secondary",
+                    color = activitySecondaryColor,
+                    enabled = enabled,
+                    onColorSelected = { activitySecondaryColor = it; onSaveActivitySecondaryColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Accent",
+                    color = activityAccentColor,
+                    enabled = enabled,
+                    onColorSelected = { activityAccentColor = it; onSaveActivityAccentColor(it) },
+                )
+                ColorPickerRow(
+                    label = "Outline",
+                    color = activityOutlineColor,
+                    enabled = enabled,
+                    onColorSelected = { activityOutlineColor = it; onSaveActivityOutlineColor(it) },
+                )
+            }
+        }
+
+        SectionTitle("Energy baseline")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            ListItem(
+                headlineContent = { Text("Base calories burned per day") },
+                supportingContent = { Text("Current: $baseCaloriesBurned kcal") },
+            )
+            OutlinedTextField(
+                value = baseCaloriesBurnedInput,
+                onValueChange = { baseCaloriesBurnedInput = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                label = { Text("Base calories burned per day") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                enabled = enabled,
+            )
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSaveBaseCaloriesBurned(baseCaloriesBurnedInput) },
+                    enabled = enabled && baseCaloriesBurnedInput.isNotBlank(),
+                ) { Text("Save base burn") }
+            }
+            ListItem(
+                headlineContent = { Text("Calories burned per 1,000 steps") },
+                supportingContent = { Text("Current: ${kcalPerStep * 1000} kcal / 1,000 steps") },
+            )
+            OutlinedTextField(
+                value = kcalPer1000StepsInput,
+                onValueChange = { kcalPer1000StepsInput = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                label = { Text("Calories burned per 1,000 steps (kcal)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                enabled = enabled,
+            )
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSaveKcalPerStep(kcalPer1000StepsInput) },
+                    enabled = enabled && kcalPer1000StepsInput.isNotBlank(),
+                ) { Text("Save step burn") }
+            }
+        }
+
         SectionTitle("OpenAI")
         Card(modifier = Modifier.fillMaxWidth()) {
             ListItem(
@@ -346,4 +551,75 @@ private fun SettingsContent(
             dismissButton = { TextButton(onClick = { showModelDialog = false }) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+private fun ColorPickerRow(
+    label: String,
+    color: Color,
+    enabled: Boolean,
+    onColorSelected: (Color) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    ListItem(
+        headlineContent = { Text(label) },
+        trailingContent = {
+            Row(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    .clickable(enabled = enabled) { showDialog = true },
+            ) {}
+        },
+        modifier = Modifier.clickable(enabled = enabled) { showDialog = true },
+    )
+
+    if (showDialog) {
+        ColorPickerDialog(
+            initialColor = color,
+            onDismiss = { showDialog = false },
+            onConfirm = { selected ->
+                onColorSelected(selected)
+                showDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun ColorPickerDialog(
+    initialColor: Color,
+    onDismiss: () -> Unit,
+    onConfirm: (Color) -> Unit,
+) {
+    val controller = rememberColorPickerController()
+    var selectedColor by remember { mutableStateOf(initialColor) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pick a color") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                HsvColorPicker(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    controller = controller,
+                    initialColor = initialColor,
+                    onColorChanged = { envelope -> selectedColor = envelope.color },
+                )
+                BrightnessSlider(
+                    modifier = Modifier.fillMaxWidth().height(35.dp),
+                    controller = controller,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectedColor) }) { Text("Apply") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }

@@ -18,17 +18,6 @@ class UiCopyContractTest {
     }
 
     @Test
-    fun mealEditorLabelsSourceAsSourceUrl() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
-
-        assertTrue(mealEditor.contains("Source URL"))
-        assertTrue(mealEditor.contains("KeyboardType.Uri"))
-        assertTrue(mealEditor.contains("SourceUrlRow(\"Source URL\", source)"))
-        assertFalse(mealEditor.contains("Text(\"Source\")"))
-        assertFalse(mealEditor.contains("NutritionRow(\"Source\""))
-    }
-
-    @Test
     fun mealUiExposesAmountGmlForEditingAndStats() {
         val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
         val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
@@ -95,7 +84,8 @@ class UiCopyContractTest {
     fun emptyEntriesCopyDistinguishesNoSavedEntriesFromEmptyWindow() {
         val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
 
-        assertTrue(mealEntriesScreen.contains("No saved entries yet"))
+        assertTrue(mealEntriesScreen.contains("No saved meals yet"))
+        assertTrue(mealEntriesScreen.contains("No saved activities yet"))
         assertTrue(mealEntriesScreen.contains("No entries in this time window"))
     }
 
@@ -105,7 +95,9 @@ class UiCopyContractTest {
         val voiceInputOverlay = source("app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt")
         val combined = mealEntriesScreen + "\n" + voiceInputOverlay
 
-        assertTrue(combined.contains("Add meal"))
+        assertTrue(combined.contains("Add"))
+        assertTrue(mealEntriesScreen.contains("Meals"))
+        assertTrue(mealEntriesScreen.contains("Activities"))
         assertTrue(combined.contains("Text(if (keepListening) \"Stop\" else \"Voice\")"))
         assertTrue(combined.contains("Text(\"Photo\")"))
         assertFalse(mealEntriesScreen.contains("use the mic"))

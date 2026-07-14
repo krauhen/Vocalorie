@@ -9,23 +9,34 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.vocalorie.BuildConfig
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.data.CachedMealMatch
+import com.example.vocalorie.data.toEditableDraft
 import com.example.vocalorie.data.findCachedMealMatch
 import com.example.vocalorie.data.VocalorieDatabase
 import com.example.vocalorie.data.searchSavedMeals
-import com.example.vocalorie.data.toEditableDraft
 import com.example.vocalorie.data.toEntity
+import com.example.vocalorie.data.toSavedActivity
 import com.example.vocalorie.data.toSavedMeal
+import com.example.vocalorie.model.ActivityType
+import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.EditableMealDraft
+import com.example.vocalorie.model.SavedActivity
+import com.example.vocalorie.model.stepsBurnKcal
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.settings.ThemeColors
 import com.example.vocalorie.settings.OpenAiApiKeyStore
+import com.example.vocalorie.settings.ThemeSettingsStore
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.settings.ToolSettingsStore
+import com.example.vocalorie.ui.entries.ActivityEntryOverlay
+import com.example.vocalorie.ui.entries.EntriesTab
 import com.example.vocalorie.ui.entries.MealEntriesScreen
 import com.example.vocalorie.ui.entries.MealEntryOverlay
 import com.example.vocalorie.ui.settings.SettingsScreen
@@ -36,11 +47,18 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun MealCaptureScreen(modifier: Modifier = Modifier) {
+fun MealCaptureScreen(
+    activeThemeColors: ThemeColors,
+    onActiveThemeColorsChange: (ThemeColors) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
-    val dao = remember { VocalorieDatabase.get(context).mealDao() }
+    val database = remember { VocalorieDatabase.get(context) }
+    val mealDao = remember { database.mealDao() }
+    val activityDao = remember { database.activityDao() }
     val apiKeyStore = remember { OpenAiApiKeyStore(context) }
     val toolSettingsStore = remember { ToolSettingsStore(context) }
+    val themeSettingsStore = remember { ThemeSettingsStore(context) }
     val scope = rememberCoroutineScope()
 
     var showSettings by rememberSaveable { mutableStateOf(false) }
@@ -57,16 +75,29 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
     var savedKeyLabel by remember { mutableStateOf<String?>(apiKeyStore.displayLabel()) }
     var toolSettings by remember { mutableStateOf(toolSettingsStore.get()) }
     var braveKeyLabel by remember { mutableStateOf<String?>(toolSettingsStore.savedBraveKeyLabel()) }
+    var baseCaloriesBurned by remember { mutableIntStateOf(themeSettingsStore.getBaseCaloriesBurned()) }
+    var kcalPerStep by remember { mutableDoubleStateOf(themeSettingsStore.getKcalPerStep()) }
+    var selectedTab by rememberSaveable { mutableStateOf(EntriesTab.MEALS) }
     var draft by remember { mutableStateOf<EditableMealDraft?>(null) }
     var savedMeals by remember { mutableStateOf<List<SavedMeal>>(emptyList()) }
+    var savedActivities by remember { mutableStateOf<List<SavedActivity>>(emptyList()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedMeal by remember { mutableStateOf<SavedMeal?>(null) }
     var selectedDraft by remember { mutableStateOf<EditableMealDraft?>(null) }
+    var selectedActivity by remember { mutableStateOf<SavedActivity?>(null) }
+    var selectedActivityDraft by remember { mutableStateOf<EditableActivityDraft?>(null) }
+    var showActivityOverlay by remember { mutableStateOf(false) }
+    var activityMessage by remember { mutableStateOf<String?>(null) }
+    var activityError by remember { mutableStateOf<String?>(null) }
     var approvalMatch by remember { mutableStateOf<CachedMealMatch?>(null) }
     var pendingEstimateRequest by remember { mutableStateOf<EstimateRequest?>(null) }
 
     suspend fun refreshHistory() {
-        savedMeals = withContext(Dispatchers.IO) { dao.getAll().map { it.toSavedMeal() } }
+        savedMeals = withContext(Dispatchers.IO) { mealDao.getAll().map { it.toSavedMeal() } }
+    }
+
+    suspend fun refreshActivities() {
+        savedActivities = withContext(Dispatchers.IO) { activityDao.getAll().map { it.toSavedActivity() } }
     }
 
     fun refreshSavedKeyLabel() { savedKeyLabel = apiKeyStore.displayLabel() }
@@ -78,7 +109,51 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
         return refreshed
     }
 
-    LaunchedEffect(Unit) { refreshHistory() }
+    fun refreshThemeState() {
+        baseCaloriesBurned = themeSettingsStore.getBaseCaloriesBurned()
+        kcalPerStep = themeSettingsStore.getKcalPerStep()
+        onActiveThemeColorsChange(
+            when (selectedTab) {
+                EntriesTab.MEALS -> themeSettingsStore.get()
+                EntriesTab.ACTIVITIES -> themeSettingsStore.getActivityColors()
+            },
+        )
+    }
+
+    fun selectTab(tab: EntriesTab) {
+        selectedTab = tab
+        refreshThemeState()
+    }
+
+    fun openActivityEditor(activity: SavedActivity?) {
+        selectedActivity = activity
+        selectedActivityDraft = activity?.toEditableDraft() ?: EditableActivityDraft(
+            type = null,
+            title = "",
+            description = "",
+            caloriesBurnedKcal = "",
+            durationMinutes = "",
+            steps = "",
+            createdAtEpochMillis = System.currentTimeMillis(),
+        )
+        showActivityOverlay = true
+        activityError = null
+        activityMessage = null
+    }
+
+    fun dismissActivityEditor() {
+        showActivityOverlay = false
+        selectedActivity = null
+        selectedActivityDraft = null
+        activityError = null
+        activityMessage = null
+    }
+
+    LaunchedEffect(Unit) {
+        refreshHistory()
+        refreshActivities()
+        refreshThemeState()
+    }
 
     fun resetNewMealEstimate() {
         query = ""
@@ -120,12 +195,17 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    BackHandler(enabled = showSettings || approvalMatch != null || selectedMeal != null) {
+    BackHandler(enabled = showSettings || approvalMatch != null || selectedMeal != null || showActivityOverlay) {
         when {
             showSettings -> showSettings = false
             approvalMatch != null -> {
                 approvalMatch = null
                 pendingEstimateRequest = null
+            }
+            showActivityOverlay -> {
+                showActivityOverlay = false
+                selectedActivity = null
+                selectedActivityDraft = null
             }
             selectedMeal != null -> {
                 selectedMeal = null
@@ -136,6 +216,45 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
 
     if (showSettings) {
         SettingsScreen(
+            themeColors = themeSettingsStore.get(),
+            onSavePrimaryColor = { themeSettingsStore.savePrimary(it); refreshThemeState() },
+            onSaveSecondaryColor = { themeSettingsStore.saveSecondary(it); refreshThemeState() },
+            onSaveAccentColor = { themeSettingsStore.saveAccent(it); refreshThemeState() },
+            onSaveBackgroundColor = { themeSettingsStore.saveBackground(it); refreshThemeState() },
+            onSaveSurfaceColor = { themeSettingsStore.saveSurface(it); refreshThemeState() },
+            onSaveSurfaceVariantColor = { themeSettingsStore.saveSurfaceVariant(it); refreshThemeState() },
+            onSaveOutlineColor = { themeSettingsStore.saveOutline(it); refreshThemeState() },
+            activityColors = themeSettingsStore.getActivityColors(),
+            onSaveActivityPrimaryColor = { themeSettingsStore.saveActivityPrimary(it); refreshThemeState() },
+            onSaveActivitySecondaryColor = { themeSettingsStore.saveActivitySecondary(it); refreshThemeState() },
+            onSaveActivityAccentColor = { themeSettingsStore.saveActivityAccent(it); refreshThemeState() },
+            onSaveActivityOutlineColor = { themeSettingsStore.saveActivityOutline(it); refreshThemeState() },
+            baseCaloriesBurned = themeSettingsStore.getBaseCaloriesBurned(),
+            onSaveBaseCaloriesBurned = { input ->
+                settingsMessage = null
+                val caloriesBurned = input.trim().toIntOrNull()
+                if (caloriesBurned == null || caloriesBurned <= 0) {
+                    settingsMessage = "Enter a whole number greater than 0 for base calories burned per day."
+                } else {
+                    runCatching { themeSettingsStore.saveBaseCaloriesBurned(caloriesBurned) }
+                        .onSuccess { settingsMessage = "Saved base calories burned per day." }
+                        .onFailure { settingsMessage = it.message ?: "Could not save base calories burned per day." }
+                    refreshThemeState()
+                }
+            },
+            kcalPerStep = themeSettingsStore.getKcalPerStep(),
+            onSaveKcalPerStep = { input ->
+                settingsMessage = null
+                val per1000 = input.trim().replace(',', '.').toDoubleOrNull()
+                if (per1000 == null || per1000 <= 0.0) {
+                    settingsMessage = "Enter a number greater than 0 for calories burned per 1,000 steps."
+                } else {
+                    runCatching { themeSettingsStore.saveKcalPerStep(per1000 / 1000.0) }
+                        .onSuccess { settingsMessage = "Saved calories burned per 1,000 steps." }
+                        .onFailure { settingsMessage = it.message ?: "Could not save calories burned per 1,000 steps." }
+                    refreshThemeState()
+                }
+            },
             savedKeyLabel = savedKeyLabel,
             runtimeApiKey = runtimeApiKey,
             onRuntimeApiKeyChange = { runtimeApiKey = it },
@@ -219,13 +338,19 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
     } else {
         MealEntriesScreen(
             meals = savedMeals,
+            activities = savedActivities,
+            selectedTab = selectedTab,
+            onSelectTab = ::selectTab,
             onOpenMeal = {
                 selectedMeal = it
                 selectedDraft = it.toEditableDraft()
                 error = null
                 saveMessage = null
             },
+            onOpenActivity = { openActivityEditor(it) },
+            onAddActivity = { openActivityEditor(null) },
             onOpenSettings = { showSettings = true },
+            baseCaloriesBurned = baseCaloriesBurned,
             modifier = modifier,
             voiceButton = {
                 val searchResults = searchSavedMeals(savedMeals, searchQuery)
@@ -296,7 +421,7 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
                             scope.launch {
                                 isSaving = true
                                 try {
-                                    val savedId = withContext(Dispatchers.IO) { dao.insert(mealDraft.toEntity()) }
+                                    val savedId = withContext(Dispatchers.IO) { mealDao.insert(mealDraft.toEntity()) }
                                     refreshHistory()
                                     selectedMeal = savedMeals.firstOrNull { it.id == savedId }
                                     selectedDraft = selectedMeal?.toEditableDraft()
@@ -377,7 +502,7 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
                                 id = meal.id,
                                 createdAtEpochMillis = mealDraft.createdAtEpochMillis ?: meal.createdAtEpochMillis,
                             )
-                            withContext(Dispatchers.IO) { dao.update(updated) }
+                            withContext(Dispatchers.IO) { mealDao.update(updated) }
                             refreshHistory()
                             selectedMeal = updated.toSavedMeal()
                             selectedDraft = selectedMeal?.toEditableDraft()
@@ -395,7 +520,7 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
                 scope.launch {
                     isSaving = true
                     try {
-                        withContext(Dispatchers.IO) { dao.deleteById(meal.id) }
+                        withContext(Dispatchers.IO) { mealDao.deleteById(meal.id) }
                         selectedMeal = null
                         selectedDraft = null
                         refreshHistory()
@@ -408,6 +533,88 @@ fun MealCaptureScreen(modifier: Modifier = Modifier) {
                 }
             },
             onDismiss = { selectedMeal = null; selectedDraft = null },
+        )
+    }
+
+    if (showActivityOverlay) selectedActivityDraft?.let { draft ->
+        ActivityEntryOverlay(
+            activity = selectedActivity,
+            draft = draft,
+            enabled = !isSaving,
+            kcalPerStep = kcalPerStep,
+            message = activityMessage,
+            error = activityError,
+            onDraftChange = { selectedActivityDraft = it },
+            onSave = { activityDraft, onSaved ->
+                activityError = null
+                activityMessage = null
+                val type = activityDraft.type
+                val isSteps = type == ActivityType.STEPS
+                val steps = activityDraft.steps.trim().toIntOrNull()
+                val calories = if (isSteps) {
+                    steps?.let { stepsBurnKcal(it, kcalPerStep) }
+                } else {
+                    activityDraft.caloriesBurnedKcal.trim().replace(',', '.').toDoubleOrNull()
+                }
+                val duration = if (isSteps) 0 else activityDraft.durationMinutes.trim().toIntOrNull()
+                when {
+                    type == null -> activityError = "Choose an activity type before saving."
+                    isSteps && (steps == null || steps < 0) -> activityError = "Enter your step count as a whole number."
+                    calories == null -> activityError = "Enter calories burned as a number."
+                    duration == null -> activityError = "Enter duration in whole minutes."
+                    else -> {
+                        scope.launch {
+                            isSaving = true
+                            try {
+                                val entity = activityDraft.toEntity(
+                                    id = selectedActivity?.id ?: 0L,
+                                    createdAtEpochMillis = activityDraft.createdAtEpochMillis ?: System.currentTimeMillis(),
+                                ).copy(
+                                    caloriesBurnedKcal = calories,
+                                    durationMinutes = duration,
+                                    stepsCount = if (isSteps) steps else null,
+                                )
+                                if (selectedActivity == null) {
+                                    withContext(Dispatchers.IO) { activityDao.insert(entity) }
+                                    refreshActivities()
+                                    activityMessage = "Saved activity to local entries."
+                                    dismissActivityEditor()
+                                } else {
+                                    withContext(Dispatchers.IO) { activityDao.update(entity) }
+                                    refreshActivities()
+                                    selectedActivity = entity.toSavedActivity()
+                                    selectedActivityDraft = selectedActivity?.toEditableDraft()
+                                    activityMessage = "Updated activity."
+                                    onSaved()
+                                }
+                            } catch (throwable: Throwable) {
+                                activityError = throwable.message ?: "Could not save activity locally."
+                            } finally {
+                                isSaving = false
+                            }
+                        }
+                    }
+                }
+            },
+            onDelete = {
+                scope.launch {
+                    isSaving = true
+                    try {
+                        val current = selectedActivity
+                        if (current != null) {
+                            withContext(Dispatchers.IO) { activityDao.deleteById(current.id) }
+                            refreshActivities()
+                        }
+                        dismissActivityEditor()
+                        activityMessage = "Deleted activity."
+                    } catch (throwable: Throwable) {
+                        activityError = throwable.message ?: "Could not delete activity locally."
+                    } finally {
+                        isSaving = false
+                    }
+                }
+            },
+            onDismiss = { dismissActivityEditor() },
         )
     }
 }
