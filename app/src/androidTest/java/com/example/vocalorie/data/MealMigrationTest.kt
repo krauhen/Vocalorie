@@ -75,4 +75,54 @@ class MealMigrationTest {
 
         migratedDb.close()
     }
+
+    @Test
+    fun migrate7To8CreatesEmptyCachesAndPreservesMeals() {
+        // Create a v7 database with an existing meal.
+        helper.createDatabase("vocalorie.db", 7).use { db ->
+            db.execSQL(
+                """
+                INSERT INTO meals (
+                    id, createdAtEpochMillis, title, query, itemsJson,
+                    caloriesKcal, amountGml, proteinG, carbsG, fatG,
+                    saturatedFatG, sugarG, saltG, assumptionsText,
+                    warningsText, confidence, needsHumanReview
+                ) VALUES (
+                    1, 1688127180000, 'Buttermilch', 'Buttermilch 200g', '[]',
+                    100.0, 200.0, 5.0, 8.0, 2.0,
+                    1.0, 6.0, 0.2, 'No assumptions',
+                    'No warnings', 'MEDIUM', 1
+                )
+                """.trimIndent(),
+            )
+        }
+
+        val migratedDb = helper.runMigrationsAndValidate("vocalorie.db", 8, true, VocalorieDatabase.MIGRATION_7_8)
+
+        val version = migratedDb.query("PRAGMA user_version").use { cursor ->
+            cursor.moveToFirst()
+            cursor.getInt(0)
+        }
+        assert(version == 8) { "Expected schema version 8, got $version" }
+
+        // Existing meal survives untouched.
+        migratedDb.query("SELECT title, query, caloriesKcal FROM meals WHERE id = 1").use {
+            assert(it.moveToFirst()) { "Expected meal record not found" }
+            assert(it.getString(0) == "Buttermilch") { "Expected title 'Buttermilch'" }
+            assert(it.getString(1) == "Buttermilch 200g") { "Expected query 'Buttermilch 200g'" }
+            assert(it.getDouble(2) == 100.0) { "Expected calories 100.0" }
+        }
+
+        // Both cache tables exist and start empty (no backfill from history).
+        migratedDb.query("SELECT COUNT(*) FROM cached_meals").use {
+            it.moveToFirst()
+            assert(it.getInt(0) == 0) { "Expected empty cached_meals" }
+        }
+        migratedDb.query("SELECT COUNT(*) FROM cached_items").use {
+            it.moveToFirst()
+            assert(it.getInt(0) == 0) { "Expected empty cached_items" }
+        }
+
+        migratedDb.close()
+    }
 }

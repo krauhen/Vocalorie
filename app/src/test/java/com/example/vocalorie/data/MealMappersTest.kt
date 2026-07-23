@@ -206,8 +206,8 @@ class MealMappersTest {
     }
 
     @Test
-    fun findCachedMealMatchPrefersFirstMatchingMealAndScalesRequestedAmount() {
-        val meals = listOf(
+    fun findCachedMealMatchScalesRequestedAmountFromCache() {
+        val cache = listOf(
             savedMeal(
                 id = 1L,
                 query = "100g cucumber",
@@ -217,24 +217,13 @@ class MealMappersTest {
                 proteinG = 1.0,
                 carbsG = 2.0,
                 fatG = 3.0,
-            ),
-            savedMeal(
-                id = 2L,
-                query = "100g cucumber",
-                title = "Cucumber salad copy",
-                amountGml = 100.0,
-                caloriesKcal = 99.0,
-                proteinG = 9.0,
-                carbsG = 9.0,
-                fatG = 9.0,
-            ),
+            ).toEditableDraft().toCachedMealEntity()!!,
         )
 
-        val match = findCachedMealMatch(meals, "200g cucumber")
+        val match = findCachedMealMatch(cache, "200g cucumber")
 
         assertNotNull(match)
-        assertEquals(1L, match!!.meal.id)
-        assertEquals("200g cucumber", match.draft.query)
+        assertEquals("200g cucumber", match!!.draft.query)
         assertEquals("200", match.draft.amountGml)
         assertEquals("40", match.draft.caloriesKcal)
         assertEquals("2", match.draft.proteinG)

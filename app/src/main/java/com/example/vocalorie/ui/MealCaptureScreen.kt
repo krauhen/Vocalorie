@@ -16,9 +16,14 @@ import androidx.compose.ui.platform.LocalContext
 import com.example.vocalorie.BuildConfig
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.ai.NutritionAgentException
+import com.example.vocalorie.data.CachedItemEntity
+import com.example.vocalorie.data.CachedMealEntity
 import com.example.vocalorie.data.CachedMealMatch
 import com.example.vocalorie.data.toEditableDraft
 import com.example.vocalorie.data.findCachedMealMatch
+import com.example.vocalorie.data.toCachedItemEntities
+import com.example.vocalorie.data.toCachedMealEntity
+import com.example.vocalorie.data.withItemsResolvedFromCache
 import com.example.vocalorie.data.VocalorieDatabase
 import com.example.vocalorie.data.searchSavedMeals
 import com.example.vocalorie.data.toEntity
@@ -56,6 +61,7 @@ fun MealCaptureScreen(
     val database = remember { VocalorieDatabase.get(context) }
     val mealDao = remember { database.mealDao() }
     val activityDao = remember { database.activityDao() }
+    val cacheDao = remember { database.cacheDao() }
     val apiKeyStore = remember { OpenAiApiKeyStore(context) }
     val toolSettingsStore = remember { ToolSettingsStore(context) }
     val themeSettingsStore = remember { ThemeSettingsStore(context) }
@@ -80,6 +86,8 @@ fun MealCaptureScreen(
     var selectedTab by rememberSaveable { mutableStateOf(EntriesTab.MEALS) }
     var draft by remember { mutableStateOf<EditableMealDraft?>(null) }
     var savedMeals by remember { mutableStateOf<List<SavedMeal>>(emptyList()) }
+    var cachedMeals by remember { mutableStateOf<List<CachedMealEntity>>(emptyList()) }
+    var cachedItems by remember { mutableStateOf<List<CachedItemEntity>>(emptyList()) }
     var savedActivities by remember { mutableStateOf<List<SavedActivity>>(emptyList()) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var selectedMeal by remember { mutableStateOf<SavedMeal?>(null) }
@@ -94,6 +102,22 @@ fun MealCaptureScreen(
 
     suspend fun refreshHistory() {
         savedMeals = withContext(Dispatchers.IO) { mealDao.getAll().map { it.toSavedMeal() } }
+    }
+
+    suspend fun refreshCaches() {
+        val loaded = withContext(Dispatchers.IO) { cacheDao.allMeals to cacheDao.allItems }
+        cachedMeals = loaded.first
+        cachedItems = loaded.second
+    }
+
+    // Reviewed-save is the only writer of both caches; last-saved-wins per normalized key.
+    suspend fun upsertCachesFromReviewedMeal(mealDraft: EditableMealDraft) {
+        withContext(Dispatchers.IO) {
+            mealDraft.toCachedMealEntity()?.let { cacheDao.upsertMeal(it) }
+            val itemEntities = mealDraft.toCachedItemEntities()
+            if (itemEntities.isNotEmpty()) cacheDao.upsertItems(itemEntities)
+        }
+        refreshCaches()
     }
 
     suspend fun refreshActivities() {
@@ -151,6 +175,7 @@ fun MealCaptureScreen(
 
     LaunchedEffect(Unit) {
         refreshHistory()
+        refreshCaches()
         refreshActivities()
         refreshThemeState()
     }
@@ -182,7 +207,9 @@ fun MealCaptureScreen(
                     query = request.requestQuery,
                     toolSettings = settingsForEstimate,
                     imageAttachments = request.imageAttachments,
-                ).toEditableDraft().copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
+                ).toEditableDraft()
+                    .copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
+                    .withItemsResolvedFromCache(cachedItems)
             } catch (throwable: NutritionAgentException) {
                 error = throwable.message ?: "Koog nutrition estimate failed."
                 diagnostic = throwable.diagnostic
@@ -393,7 +420,7 @@ fun MealCaptureScreen(
                                 else -> "Photos (${imageAttachments.size})"
                             }
                         }
-                        val cachedMatch = findCachedMealMatch(savedMeals, promptQuery)
+                        val cachedMatch = findCachedMealMatch(cachedMeals, promptQuery)
                         when {
                             cachedMatch != null -> {
                                 approvalMatch = cachedMatch
@@ -423,6 +450,7 @@ fun MealCaptureScreen(
                                 try {
                                     val savedId = withContext(Dispatchers.IO) { mealDao.insert(mealDraft.toEntity()) }
                                     refreshHistory()
+                                    upsertCachesFromReviewedMeal(mealDraft)
                                     selectedMeal = savedMeals.firstOrNull { it.id == savedId }
                                     selectedDraft = selectedMeal?.toEditableDraft()
                                     draft = null
@@ -504,6 +532,7 @@ fun MealCaptureScreen(
                             )
                             withContext(Dispatchers.IO) { mealDao.update(updated) }
                             refreshHistory()
+                            upsertCachesFromReviewedMeal(mealDraft)
                             selectedMeal = updated.toSavedMeal()
                             selectedDraft = selectedMeal?.toEditableDraft()
                             saveMessage = "Updated saved meal."

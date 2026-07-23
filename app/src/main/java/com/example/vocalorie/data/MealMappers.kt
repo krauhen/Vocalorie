@@ -96,12 +96,115 @@ fun SavedMeal.toEditableDraft(): EditableMealDraft = EditableMealDraft(
     createdAtEpochMillis = createdAtEpochMillis,
 ).withTotalsSummedFromItems()
 
-fun findCachedMealMatch(meals: List<SavedMeal>, requestQuery: String): CachedMealMatch? {
+/**
+ * Reuse a cached whole meal only when the request's normalized query key exactly equals a
+ * cached meal-key entry (order-insensitive token-set equality, amount tokens stripped, item
+ * names excluded). Reads the dedicated meal-key cache, never the meals history list.
+ */
+fun findCachedMealMatch(cachedMeals: List<CachedMealEntity>, requestQuery: String): CachedMealMatch? {
     val normalizedRequestKey = requestQuery.toStableNormalizedMealKey()
     if (normalizedRequestKey.isBlank()) return null
 
-    val meal = meals.firstOrNull { it.matchesNormalizedMealKey(normalizedRequestKey) } ?: return null
+    val entry = cachedMeals.firstOrNull { it.normalizedKey == normalizedRequestKey } ?: return null
+    val meal = entry.toSavedMeal()
     return CachedMealMatch(meal = meal, draft = meal.toPreparedCachedDraft(requestQuery))
+}
+
+/** Decode a cached meal entry back into a [SavedMeal] for reuse (synthetic id/timestamp). */
+fun CachedMealEntity.toSavedMeal(): SavedMeal {
+    val decodedItems = runCatching { mealJson.decodeFromString(foodItemListSerializer, itemsJson) }.getOrDefault(emptyList())
+    return SavedMeal(
+        id = 0L,
+        createdAtEpochMillis = 0L,
+        title = title,
+        query = query,
+        items = decodedItems,
+        totals = decodedItems.toSummedNutritionTotals(),
+        assumptions = assumptionsText.toLinesList(),
+        warnings = warningsText.toLinesList(),
+        confidence = runCatching { ConfidenceLevel.valueOf(confidence) }.getOrDefault(ConfidenceLevel.LOW),
+        needsHumanReview = needsHumanReview,
+    )
+}
+
+/**
+ * Build the meal-key cache row for a reviewed meal. Returns null when the query has no usable
+ * normalized key (e.g. only amount/number tokens), so nothing is cached under a blank key.
+ */
+fun EditableMealDraft.toCachedMealEntity(): CachedMealEntity? {
+    val normalizedKey = query.toStableNormalizedMealKey()
+    if (normalizedKey.isBlank()) return null
+    return CachedMealEntity(
+        normalizedKey = normalizedKey,
+        title = title.resolveMealTitle(query, items.firstOrNull()?.name),
+        query = query.trim(),
+        itemsJson = mealJson.encodeToString(foodItemListSerializer, items.map { it.toFoodItemEstimate() }),
+        assumptionsText = assumptionsText.trim(),
+        warningsText = warningsText.trim(),
+        confidence = confidence.name,
+        needsHumanReview = needsHumanReview,
+    )
+}
+
+/**
+ * Build item-name cache rows for a reviewed meal, one per item, storing nutrition per 100 g/ml.
+ * Items without a usable name or a positive amount (can't be normalized to a 100 basis) are skipped.
+ */
+fun EditableMealDraft.toCachedItemEntities(): List<CachedItemEntity> =
+    items.mapNotNull { it.toFoodItemEstimate().toCachedItemEntity() }
+
+private fun FoodItemEstimate.toCachedItemEntity(): CachedItemEntity? {
+    val normalizedName = name.toStableNormalizedMealKey()
+    if (normalizedName.isBlank()) return null
+    val amount = amountGml?.takeIf { it > 0.0 } ?: return null
+    val per100Factor = 100.0 / amount
+    return CachedItemEntity(
+        normalizedName = normalizedName,
+        displayName = name.trim(),
+        caloriesKcalPer100 = caloriesKcal?.times(per100Factor),
+        proteinGPer100 = proteinG?.times(per100Factor),
+        carbsGPer100 = carbsG?.times(per100Factor),
+        fatGPer100 = fatG?.times(per100Factor),
+        saturatedFatGPer100 = saturatedFatG?.times(per100Factor),
+        sugarGPer100 = sugarG?.times(per100Factor),
+        saltGPer100 = saltG?.times(per100Factor),
+        source = source,
+        reasoning = reasoning,
+    )
+}
+
+/**
+ * After an estimate produces items, auto-resolve any item whose normalized name matches an
+ * item-cache entry, replacing its nutrition with the cached per-100 values scaled to that item's
+ * requested amount. Items with no cache match or no positive amount are left untouched.
+ */
+fun EditableMealDraft.withItemsResolvedFromCache(cachedItems: List<CachedItemEntity>): EditableMealDraft {
+    if (cachedItems.isEmpty()) return this
+    val cacheByName = cachedItems.associateBy { it.normalizedName }
+    var changed = false
+    val resolvedItems = items.map { item ->
+        val cached = cacheByName[item.name.toStableNormalizedMealKey()] ?: return@map item
+        val amount = item.amountGml.toNullableDouble()?.takeIf { it > 0.0 } ?: return@map item
+        changed = true
+        cached.scaledEditableFoodItem(item, amount)
+    }
+    if (!changed) return this
+    return copy(items = resolvedItems).withTotalsSummedFromItems()
+}
+
+private fun CachedItemEntity.scaledEditableFoodItem(item: EditableFoodItem, requestedAmountGml: Double): EditableFoodItem {
+    val factor = requestedAmountGml / 100.0
+    return item.copy(
+        caloriesKcal = caloriesKcalPer100?.times(factor).toEditText(),
+        proteinG = proteinGPer100?.times(factor).toEditText(),
+        carbsG = carbsGPer100?.times(factor).toEditText(),
+        fatG = fatGPer100?.times(factor).toEditText(),
+        saturatedFatG = saturatedFatGPer100?.times(factor).toEditText(),
+        sugarG = sugarGPer100?.times(factor).toEditText(),
+        saltG = saltGPer100?.times(factor).toEditText(),
+        source = source.toSourceUrlOrBlank(),
+        reasoning = reasoning,
+    )
 }
 
 fun searchSavedMeals(meals: List<SavedMeal>, searchQuery: String, limit: Int = 5): List<SavedMeal> {
@@ -184,7 +287,7 @@ private fun String.normalizeMealText(): String = trim()
     .replace(amountTokenPattern, " ")
     .replace(Regex("\\s+"), " ")
 
-private fun String.toStableNormalizedMealKey(): String = normalizeMealText()
+fun String.toStableNormalizedMealKey(): String = normalizeMealText()
     .split(Regex("[^\\p{L}\\p{Nd}]+"))
     .asSequence()
     .map { it.trim() }

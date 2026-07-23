@@ -8,10 +8,15 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {MealEntity.class, ActivityEntity.class}, version = 7, exportSchema = false)
+@Database(
+    entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
+    version = 8,
+    exportSchema = false
+)
 public abstract class VocalorieDatabase extends RoomDatabase {
     public abstract MealDao mealDao();
     public abstract ActivityDao activityDao();
+    public abstract CacheDao cacheDao();
 
     private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override
@@ -107,6 +112,41 @@ public abstract class VocalorieDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_7_8 = new Migration(7, 8) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // Additive: create the dedicated reuse caches. They start empty (no backfill from
+            // history) and never modify the meals history table.
+            database.execSQL(
+                "CREATE TABLE cached_meals (" +
+                    "normalizedKey TEXT PRIMARY KEY NOT NULL, " +
+                    "title TEXT NOT NULL, " +
+                    "query TEXT NOT NULL, " +
+                    "itemsJson TEXT NOT NULL, " +
+                    "assumptionsText TEXT NOT NULL, " +
+                    "warningsText TEXT NOT NULL, " +
+                    "confidence TEXT NOT NULL, " +
+                    "needsHumanReview INTEGER NOT NULL" +
+                ")"
+            );
+            database.execSQL(
+                "CREATE TABLE cached_items (" +
+                    "normalizedName TEXT PRIMARY KEY NOT NULL, " +
+                    "displayName TEXT NOT NULL, " +
+                    "caloriesKcalPer100 REAL, " +
+                    "proteinGPer100 REAL, " +
+                    "carbsGPer100 REAL, " +
+                    "fatGPer100 REAL, " +
+                    "saturatedFatGPer100 REAL, " +
+                    "sugarGPer100 REAL, " +
+                    "saltGPer100 REAL, " +
+                    "source TEXT NOT NULL, " +
+                    "reasoning TEXT NOT NULL" +
+                ")"
+            );
+        }
+    };
+
     private static volatile VocalorieDatabase instance;
 
     public static VocalorieDatabase get(Context context) {
@@ -121,7 +161,7 @@ public abstract class VocalorieDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         VocalorieDatabase.class,
                         "vocalorie.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7).build();
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build();
                 instance = current;
             }
             return current;
