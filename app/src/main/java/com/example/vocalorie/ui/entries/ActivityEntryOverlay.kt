@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.SavedActivity
+import com.example.vocalorie.model.applyAddFormTypeChange
 import com.example.vocalorie.model.displayName
 import com.example.vocalorie.ui.components.EditableActivityEditor
 import com.example.vocalorie.ui.components.ReadOnlyActivitySummary
@@ -46,6 +47,13 @@ fun ActivityEntryOverlay(
     var isCreatedAtValid by remember(activity?.id, isEditing) { mutableStateOf(true) }
     var isTypeValid by remember(activity?.id, isEditing) { mutableStateOf(activity != null || draft.type != null) }
     val createAction: (() -> Unit)? = if (activity == null) { { onSave(draft) { onDismiss() } } } else null
+    // On the add path, pre-fill the title from the chosen type and default step entries to
+    // 23:59; editing an existing activity keeps its saved values untouched.
+    val handleDraftChange: (EditableActivityDraft) -> Unit = if (activity == null) {
+        { updated -> onDraftChange(applyAddFormTypeChange(draft, updated)) }
+    } else {
+        onDraftChange
+    }
 
     LaunchedEffect(activity?.id) {
         if (activity == null) {
@@ -75,7 +83,7 @@ fun ActivityEntryOverlay(
                 if (isEditing) {
                     EditableActivityEditor(
                         draft = draft,
-                        onDraftChange = onDraftChange,
+                        onDraftChange = handleDraftChange,
                         enabled = enabled,
                         kcalPerStep = kcalPerStep,
                         actionLabel = if (activity == null) "Save activity" else null,

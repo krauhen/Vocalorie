@@ -5,6 +5,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.LocalTime
+import java.time.ZoneId
 
 enum class ActivityType {
     RUNNING,
@@ -62,6 +65,45 @@ data class SavedActivity(
 
 /** Calories burned for a manual step entry, using the per-step factor from Settings. */
 fun stepsBurnKcal(steps: Int, kcalPerStep: Double): Double = steps.coerceAtLeast(0) * kcalPerStep
+
+/** Default time-of-day for step entries: steps are typically logged at the end of the day. */
+private val STEPS_DEFAULT_TIME: LocalTime = LocalTime.of(23, 59)
+
+/** Returns [epochMillis] moved to 23:59 on the same calendar day in [zone]. */
+fun endOfDayMillis(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long =
+    Instant.ofEpochMilli(epochMillis)
+        .atZone(zone)
+        .toLocalDate()
+        .atTime(STEPS_DEFAULT_TIME)
+        .atZone(zone)
+        .toInstant()
+        .toEpochMilli()
+
+/**
+ * Applies add-form defaults when the activity type changes to a new non-null value:
+ * pre-fills a blank title with the type's display name (never overwriting text the user
+ * already entered) and defaults STEPS activities to 23:59 on the selected day. Title and
+ * time stay editable, and a later type change does not overwrite them. Intended for the
+ * add flow only — editing an existing activity must not call this.
+ */
+fun applyAddFormTypeChange(
+    previous: EditableActivityDraft,
+    updated: EditableActivityDraft,
+    zone: ZoneId = ZoneId.systemDefault(),
+): EditableActivityDraft {
+    val newType = updated.type
+    if (newType == null || newType == previous.type) return updated
+    var result = updated
+    if (result.title.isBlank()) {
+        result = result.copy(title = newType.displayName())
+    }
+    if (newType == ActivityType.STEPS) {
+        result.createdAtEpochMillis?.let { millis ->
+            result = result.copy(createdAtEpochMillis = endOfDayMillis(millis, zone))
+        }
+    }
+    return result
+}
 
 private val iconFill = SolidColor(Color(0xFF111827))
 
