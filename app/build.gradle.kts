@@ -75,6 +75,7 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     annotationProcessor(libs.androidx.room.compiler)
     implementation(libs.colorpicker.compose)
+    implementation(libs.androidx.exifinterface)
 
     testImplementation(libs.junit)
 

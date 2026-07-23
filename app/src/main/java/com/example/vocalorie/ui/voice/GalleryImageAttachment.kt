@@ -3,11 +3,14 @@ package com.example.vocalorie.ui.voice
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
 import ai.koog.prompt.message.AttachmentContent
 import ai.koog.prompt.message.AttachmentSource
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.exifinterface.media.ExifInterface
+import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 
 data class GalleryImageAttachment(
@@ -21,7 +24,8 @@ fun Context.toGalleryImageAttachment(uri: Uri): GalleryImageAttachment {
     val displayName = uri.lastPathSegment.orEmpty().substringAfterLast('/').ifBlank { "selected image" }
     val rawBytes = resolver.openInputStream(uri)?.use { it.readBytes() }
         ?: throw IllegalArgumentException("Could not read the selected image.")
-    val normalized = normalizeImageBytes(rawBytes)
+    val orientation = readExifOrientation(rawBytes)
+    val normalized = normalizeImageBytes(rawBytes, orientation)
 
     return GalleryImageAttachment(
         label = displayName,
@@ -42,7 +46,14 @@ private data class NormalizedImageBytes(
     val previewBitmap: Bitmap,
 )
 
-private fun normalizeImageBytes(rawBytes: ByteArray): NormalizedImageBytes {
+private fun readExifOrientation(rawBytes: ByteArray): Int =
+    runCatching {
+        ByteArrayInputStream(rawBytes).use { input ->
+            ExifInterface(input).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        }
+    }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+
+private fun normalizeImageBytes(rawBytes: ByteArray, orientation: Int): NormalizedImageBytes {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size, bounds)
     val originalWidth = bounds.outWidth.takeIf { it > 0 } ?: throw IllegalArgumentException("Unsupported image format.")
@@ -53,8 +64,9 @@ private fun normalizeImageBytes(rawBytes: ByteArray): NormalizedImageBytes {
         inPreferredConfig = Bitmap.Config.ARGB_8888
         inSampleSize = sampleSize
     }
-    val bitmap = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size, decoded)
+    val decodedBitmap = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size, decoded)
         ?: throw IllegalArgumentException("Could not decode the selected image.")
+    val bitmap = decodedBitmap.applyExifOrientation(orientation)
 
     val scaledBitmap = bitmap.scaleDownIfNeeded(MAX_IMAGE_DIMENSION)
     val format = if (scaledBitmap.hasAlpha()) "png" else "jpg"
@@ -80,6 +92,23 @@ private fun calculateSampleSize(width: Int, height: Int, maxDimension: Int): Int
         sampleSize *= 2
     }
     return sampleSize.coerceAtLeast(1)
+}
+
+private fun Bitmap.applyExifOrientation(orientation: Int): Bitmap {
+    val matrix = Matrix()
+    when (orientation) {
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> matrix.apply { setRotate(180f); postScale(-1f, 1f) }
+        ExifInterface.ORIENTATION_TRANSPOSE -> matrix.apply { setRotate(90f); postScale(-1f, 1f) }
+        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+        ExifInterface.ORIENTATION_TRANSVERSE -> matrix.apply { setRotate(-90f); postScale(-1f, 1f) }
+        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+        else -> return this
+    }
+    val rotated = Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+    if (rotated !== this) recycle()
+    return rotated
 }
 
 private fun Bitmap.scaleDownIfNeeded(maxDimension: Int): Bitmap {

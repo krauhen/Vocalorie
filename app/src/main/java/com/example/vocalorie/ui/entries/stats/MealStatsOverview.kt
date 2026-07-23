@@ -36,20 +36,19 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
 import kotlin.math.roundToInt
 
-private val HeatmapMagenta = Color(0xFFE91E8C)
-private val HeatmapBlue = Color(0xFF2979FF)
+private val HeatmapDeepGreen = Color(0xFF2E7D32)
 private val HeatmapGreen = Color(0xFF43A047)
 private val HeatmapYellow = Color(0xFFFDD835)
 private val HeatmapOrange = Color(0xFFF57C00)
 private val HeatmapDeepRed = Color(0xFFB71C1C)
 
-private fun scoreToColor(score: Double): Color = when {
+// Score scale terminates at green (best): low scores red, mid yellow, high green.
+internal fun scoreToColor(score: Double): Color = when {
     score <= 20.0 -> lerp(HeatmapDeepRed, HeatmapOrange, (score / 20.0).toFloat())
     score <= 40.0 -> lerp(HeatmapOrange, HeatmapYellow, ((score - 20.0) / 20.0).toFloat())
     score <= 60.0 -> lerp(HeatmapYellow, HeatmapGreen, ((score - 40.0) / 20.0).toFloat())
-    score <= 80.0 -> lerp(HeatmapGreen, HeatmapBlue, ((score - 60.0) / 20.0).toFloat())
-    score <= 100.0 -> lerp(HeatmapBlue, HeatmapMagenta, ((score - 80.0) / 20.0).toFloat())
-    else -> HeatmapMagenta
+    score <= 100.0 -> lerp(HeatmapGreen, HeatmapDeepGreen, ((score - 60.0) / 40.0).toFloat())
+    else -> HeatmapDeepGreen
 }
 
 @Composable
