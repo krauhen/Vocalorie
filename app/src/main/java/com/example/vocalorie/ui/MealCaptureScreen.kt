@@ -36,6 +36,7 @@ import com.example.vocalorie.data.toSavedMeal
 import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.EditableMealDraft
+import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.stepsBurnKcal
 import com.example.vocalorie.model.SavedMeal
@@ -90,6 +91,7 @@ fun MealCaptureScreen(
     var braveKeyLabel by remember { mutableStateOf<String?>(toolSettingsStore.savedBraveKeyLabel()) }
     var baseCaloriesBurned by remember { mutableIntStateOf(themeSettingsStore.getBaseCaloriesBurned()) }
     var kcalPerStep by remember { mutableDoubleStateOf(themeSettingsStore.getKcalPerStep()) }
+    var nutritionGoals by remember { mutableStateOf(themeSettingsStore.getNutritionGoals()) }
     var selectedTab by rememberSaveable { mutableStateOf(EntriesTab.MEALS) }
     var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
     var draft by remember { mutableStateOf<EditableMealDraft?>(null) }
@@ -144,6 +146,7 @@ fun MealCaptureScreen(
     fun refreshThemeState() {
         baseCaloriesBurned = themeSettingsStore.getBaseCaloriesBurned()
         kcalPerStep = themeSettingsStore.getKcalPerStep()
+        nutritionGoals = themeSettingsStore.getNutritionGoals()
         onActiveThemeColorsChange(
             when (selectedTab) {
                 EntriesTab.MEALS -> themeSettingsStore.get()
@@ -338,6 +341,28 @@ fun MealCaptureScreen(
                     refreshThemeState()
                 }
             },
+            nutritionGoals = nutritionGoals,
+            onSaveNutritionGoals = { calorieGoalInput, proteinInput, carbsInput ->
+                settingsMessage = null
+                val goal = calorieGoalInput.trim().toIntOrNull()
+                val protein = proteinInput.trim().toIntOrNull()
+                val carbs = carbsInput.trim().toIntOrNull()
+                val fat = if (protein != null && carbs != null) 100 - protein - carbs else null
+                if (goal == null || goal <= 0) {
+                    settingsMessage = "Enter a whole number greater than 0 for the daily calorie goal."
+                } else if (protein == null || carbs == null || fat == null || protein < 0 || carbs < 0 || fat < 0) {
+                    settingsMessage = "Protein and carbs percentages must be whole numbers that leave a non-negative fat share."
+                } else {
+                    runCatching {
+                        themeSettingsStore.saveNutritionGoals(
+                            NutritionGoals(calorieGoalKcal = goal, proteinPercent = protein, carbsPercent = carbs, fatPercent = fat),
+                        )
+                    }
+                        .onSuccess { settingsMessage = "Saved nutrition goals." }
+                        .onFailure { settingsMessage = it.message ?: "Could not save nutrition goals." }
+                    refreshThemeState()
+                }
+            },
             savedKeyLabel = savedKeyLabel,
             runtimeApiKey = runtimeApiKey,
             onRuntimeApiKeyChange = { runtimeApiKey = it },
@@ -443,6 +468,7 @@ fun MealCaptureScreen(
             selectedDayOffset = selectedDayOffset,
             onSelectedDayOffsetChange = { selectedDayOffset = it },
             baseCaloriesBurned = baseCaloriesBurned,
+            goals = nutritionGoals,
             modifier = modifier,
             voiceButton = {
                 val searchResults = searchSavedMeals(savedMeals, searchQuery)

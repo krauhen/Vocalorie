@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.ai.KoogNutritionAgent
+import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.settings.OpenAiModelChoice
 import com.example.vocalorie.settings.ThemeColors
 import com.example.vocalorie.settings.ToolSettings
@@ -76,6 +77,8 @@ fun SettingsScreen(
     onSaveBaseCaloriesBurned: (String) -> Unit,
     kcalPerStep: Double,
     onSaveKcalPerStep: (String) -> Unit,
+    nutritionGoals: NutritionGoals,
+    onSaveNutritionGoals: (calorieGoal: String, proteinPercent: String, carbsPercent: String) -> Unit,
     savedKeyLabel: String?,
     runtimeApiKey: String,
     onRuntimeApiKeyChange: (String) -> Unit,
@@ -123,6 +126,8 @@ fun SettingsScreen(
             onSaveBaseCaloriesBurned = onSaveBaseCaloriesBurned,
             kcalPerStep = kcalPerStep,
             onSaveKcalPerStep = onSaveKcalPerStep,
+            nutritionGoals = nutritionGoals,
+            onSaveNutritionGoals = onSaveNutritionGoals,
             savedKeyLabel = savedKeyLabel,
             runtimeApiKey = runtimeApiKey,
             onRuntimeApiKeyChange = onRuntimeApiKeyChange,
@@ -165,6 +170,8 @@ private fun SettingsContent(
     onSaveBaseCaloriesBurned: (String) -> Unit,
     kcalPerStep: Double,
     onSaveKcalPerStep: (String) -> Unit,
+    nutritionGoals: NutritionGoals,
+    onSaveNutritionGoals: (calorieGoal: String, proteinPercent: String, carbsPercent: String) -> Unit,
     savedKeyLabel: String?,
     runtimeApiKey: String,
     onRuntimeApiKeyChange: (String) -> Unit,
@@ -200,6 +207,9 @@ private fun SettingsContent(
     var kcalPer1000StepsInput by remember(kcalPerStep) {
         mutableStateOf((kcalPerStep * 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
     }
+    var calorieGoalInput by remember(nutritionGoals.calorieGoalKcal) { mutableStateOf(nutritionGoals.calorieGoalKcal.toString()) }
+    var proteinPercentInput by remember(nutritionGoals.proteinPercent) { mutableStateOf(nutritionGoals.proteinPercent.toString()) }
+    var carbsPercentInput by remember(nutritionGoals.carbsPercent) { mutableStateOf(nutritionGoals.carbsPercent.toString()) }
     var newApiKey by remember { mutableStateOf("") }
     var newBraveApiKey by remember { mutableStateOf("") }
     var maxResearchToolCallsInput by remember { mutableStateOf(toolSettings.maxResearchToolCalls.toString()) }
@@ -349,6 +359,76 @@ private fun SettingsContent(
                     onClick = { onSaveKcalPerStep(kcalPer1000StepsInput) },
                     enabled = enabled && kcalPer1000StepsInput.isNotBlank(),
                 ) { Text("Save step burn") }
+            }
+        }
+
+        SectionTitle("Nutrition goals")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            val proteinPct = proteinPercentInput.trim().toIntOrNull()
+            val carbsPct = carbsPercentInput.trim().toIntOrNull()
+            val fatPct = if (proteinPct != null && carbsPct != null) 100 - proteinPct - carbsPct else null
+            val splitValid = proteinPct != null && carbsPct != null && fatPct != null &&
+                proteinPct >= 0 && carbsPct >= 0 && fatPct >= 0
+            ListItem(
+                headlineContent = { Text("Daily calorie goal") },
+                supportingContent = { Text("Current: ${nutritionGoals.calorieGoalKcal} kcal") },
+            )
+            OutlinedTextField(
+                value = calorieGoalInput,
+                onValueChange = { calorieGoalInput = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                label = { Text("Daily calorie goal (kcal)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                enabled = enabled,
+            )
+            ListItem(
+                headlineContent = { Text("Macro split") },
+                supportingContent = {
+                    Text(
+                        "Current: ${nutritionGoals.proteinPercent}% protein / " +
+                            "${nutritionGoals.carbsPercent}% carbs / ${nutritionGoals.fatPercent}% fat. " +
+                            "Fat is derived so the split sums to 100%.",
+                    )
+                },
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = proteinPercentInput,
+                    onValueChange = { proteinPercentInput = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Protein %") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    enabled = enabled,
+                )
+                OutlinedTextField(
+                    value = carbsPercentInput,
+                    onValueChange = { carbsPercentInput = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Carbs %") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    enabled = enabled,
+                )
+                OutlinedTextField(
+                    value = fatPct?.let { "$it%" } ?: "—",
+                    onValueChange = {},
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Fat % (derived)") },
+                    singleLine = true,
+                    readOnly = true,
+                    enabled = false,
+                )
+            }
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onSaveNutritionGoals(calorieGoalInput, proteinPercentInput, carbsPercentInput) },
+                    enabled = enabled && calorieGoalInput.isNotBlank() && splitValid,
+                ) { Text("Save goals") }
             }
         }
 

@@ -17,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,6 +29,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.vocalorie.model.NutritionGoals
+import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.SavedMeal
 import java.time.Instant
 import java.time.LocalDate
@@ -57,11 +60,17 @@ fun MealStatsOverview(
     selectedRange: MealStatsRange,
     onRangeChange: (MealStatsRange) -> Unit,
     modifier: Modifier = Modifier,
+    activities: List<SavedActivity> = emptyList(),
+    goals: NutritionGoals = NutritionGoals.DEFAULT,
     zone: ZoneId = ZoneId.systemDefault(),
     selectedDate: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit = {},
 ) {
     val stats = computeMealStats(meals, selectedRange, Instant.now(), zone)
+    val activityBurnedByDate = remember(activities, zone) {
+        activities.groupingBy { Instant.ofEpochMilli(it.createdAtEpochMillis).atZone(zone).toLocalDate() }
+            .fold(0.0) { acc, activity -> acc + activity.caloriesBurnedKcal }
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -79,6 +88,8 @@ fun MealStatsOverview(
                 heatmap = stats.heatmap,
                 dailyTotals = stats.dailyTotals,
                 rangeStartDate = stats.rangeStartDate,
+                goals = goals,
+                activityBurnedByDate = activityBurnedByDate,
                 selectedDate = selectedDate,
                 onDateSelected = onDateSelected,
             )
@@ -169,6 +180,8 @@ private fun MealStatsHeatmap(
     heatmap: Map<LocalDate, Double>,
     dailyTotals: Map<LocalDate, DailyNutritionTotals>,
     rangeStartDate: LocalDate,
+    goals: NutritionGoals,
+    activityBurnedByDate: Map<LocalDate, Double>,
     selectedDate: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit = {},
 ) {
@@ -218,7 +231,9 @@ private fun MealStatsHeatmap(
                 columns.forEach { (_, weekDates) ->
                     val date = weekDates[row]
                     val calories = if (date.isAfter(today)) null else heatmap[date]
-                    val score = if (date.isAfter(today)) null else dailyTotals[date]?.let { nutritionScore(it) }
+                    val score = if (date.isAfter(today)) null else dailyTotals[date]?.let {
+                        nutritionScore(it, goals, activityBurnedByDate[date] ?: 0.0)
+                    }
                     val isOutOfRange = date.isBefore(rangeStartDate)
                     val isTracked = calories != null && calories > 0.0
                     val isSelected = date == selectedDate

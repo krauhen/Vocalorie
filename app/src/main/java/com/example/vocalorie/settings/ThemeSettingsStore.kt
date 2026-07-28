@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.example.vocalorie.model.NutritionGoals
 
 data class ThemeColors(
     val primary: Color,
@@ -108,6 +109,24 @@ class ThemeSettingsStore(context: Context) {
         prefs.edit().putFloat(KEY_KCAL_PER_STEP, value.toFloat()).apply()
     }
 
+    /** The daily calorie + macro-split targets used by the day nutrition score. */
+    fun getNutritionGoals(): NutritionGoals = NutritionGoals(
+        calorieGoalKcal = prefs.getInt(KEY_CALORIE_GOAL, NutritionGoals.DEFAULT.calorieGoalKcal),
+        proteinPercent = prefs.getInt(KEY_MACRO_PROTEIN_PERCENT, NutritionGoals.DEFAULT.proteinPercent),
+        carbsPercent = prefs.getInt(KEY_MACRO_CARBS_PERCENT, NutritionGoals.DEFAULT.carbsPercent),
+        fatPercent = prefs.getInt(KEY_MACRO_FAT_PERCENT, NutritionGoals.DEFAULT.fatPercent),
+    )
+
+    @Synchronized
+    fun saveNutritionGoals(goals: NutritionGoals) {
+        prefs.edit()
+            .putInt(KEY_CALORIE_GOAL, goals.calorieGoalKcal)
+            .putInt(KEY_MACRO_PROTEIN_PERCENT, goals.proteinPercent)
+            .putInt(KEY_MACRO_CARBS_PERCENT, goals.carbsPercent)
+            .putInt(KEY_MACRO_FAT_PERCENT, goals.fatPercent)
+            .apply()
+    }
+
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
@@ -131,6 +150,10 @@ class ThemeSettingsStore(context: Context) {
         private const val KEY_ACTIVITY_OUTLINE = "activity_theme_outline"
         private const val KEY_BASE_CALORIES_BURNED = "base_calories_burned"
         private const val KEY_KCAL_PER_STEP = "kcal_per_step"
+        private const val KEY_CALORIE_GOAL = "calorie_goal"
+        private const val KEY_MACRO_PROTEIN_PERCENT = "macro_split_protein"
+        private const val KEY_MACRO_CARBS_PERCENT = "macro_split_carbs"
+        private const val KEY_MACRO_FAT_PERCENT = "macro_split_fat"
 
         // Defaults mirror the app's original hardcoded light color scheme.
         private const val DEFAULT_PRIMARY = 0xFFF77605.toInt()

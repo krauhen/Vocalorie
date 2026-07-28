@@ -80,6 +80,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.displayName
 import com.example.vocalorie.model.activityTypeIcon
@@ -124,6 +125,7 @@ fun MealEntriesScreen(
     selectedDayOffset: Int = 0,
     onSelectedDayOffsetChange: (Int) -> Unit = {},
     baseCaloriesBurned: Int = 2400,
+    goals: NutritionGoals = NutritionGoals.DEFAULT,
     modifier: Modifier = Modifier,
     voiceButton: @Composable () -> Unit,
 ) {
@@ -155,9 +157,11 @@ fun MealEntriesScreen(
     }
     val stats = remember(meals, now, zone, selectedDayOffset, statsSelection) { selectedTimelineStats(meals, now, zone, selectedDayOffset, statsSelection) }
     val caloriesHistogram = remember(meals, now, zone, selectedDayOffset) { selectedDayCaloriesHistogram(meals, now, zone, selectedDayOffset) }
-    val selectedDayScore = remember(visibleMeals) { nutritionScore(visibleMeals.toDailyNutritionTotals()) }
     val consumedCalories = remember(visibleMeals) { visibleMeals.toDailyNutritionTotals().caloriesKcal }
     val activitiesCaloriesBurned = remember(visibleActivities) { visibleActivities.sumOf { it.caloriesBurnedKcal } }
+    val selectedDayScore = remember(visibleMeals, goals, activitiesCaloriesBurned) {
+        nutritionScore(visibleMeals.toDailyNutritionTotals(), goals, activitiesCaloriesBurned)
+    }
     val burnedCalories = baseCaloriesBurned + activitiesCaloriesBurned
     val balanceCalories = remember(consumedCalories, activitiesCaloriesBurned, baseCaloriesBurned) {
         dailyEnergyBalance(consumedCalories, baseCaloriesBurned.toDouble(), activitiesCaloriesBurned)
@@ -226,6 +230,8 @@ fun MealEntriesScreen(
             item {
                 MealStatsOverview(
                     meals = meals,
+                    activities = activities,
+                    goals = goals,
                     selectedRange = selectedStatsRange,
                     onRangeChange = { range -> selectedStatsRangeName = range.name },
                     zone = zone,
@@ -901,6 +907,9 @@ private fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fol
         proteinG = acc.proteinG + (meal.totals.proteinG ?: 0.0),
         carbsG = acc.carbsG + (meal.totals.carbsG ?: 0.0),
         fatG = acc.fatG + (meal.totals.fatG ?: 0.0),
+        saturatedFatG = acc.saturatedFatG + (meal.totals.saturatedFatG ?: 0.0),
+        sugarG = acc.sugarG + (meal.totals.sugarG ?: 0.0),
+        saltG = acc.saltG + (meal.totals.saltG ?: 0.0),
     )
 }
 

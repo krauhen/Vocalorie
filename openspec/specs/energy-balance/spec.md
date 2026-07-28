@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Surface a daily energy picture — calories burned and the consumed-vs-burned balance — in the stats header, driven by a configurable base burn plus logged activities, without affecting the nutrition score or heatmap.
+Surface a daily energy picture — calories burned and the consumed-vs-burned balance — in the stats header, driven by a configurable base burn plus logged activities. The header figures use the full activity total; logged activities additionally raise the day nutrition score's calorie target (at a 50% discount).
 
 ## Requirements
 
@@ -43,9 +43,13 @@ The system SHALL show, in the daily stats header, a balance figure computed as `
 - **WHEN** the user consumed 2400 kcal, base burn is 2400, and activities burned 300 kcal
 - **THEN** the balance shows −300 (a deficit), rendered in the positive/favorable color
 
-### Requirement: Score and heatmap unaffected by activities
-The system SHALL NOT let activity data influence the day nutrition score (`nutritionScore`) or the meal heatmap grid; both remain computed from meals only.
+### Requirement: Activities raise the day's calorie target
+The system SHALL let a day's logged activities raise the calorie target used by the day nutrition score, by adding **50% of the day's total activity calories burned** to the user's calorie goal, as specified by the `day-nutrition-score` capability. The heatmap and daily-header score SHALL reflect this activity-adjusted target. This affects only the score's calorie target; the burned-calories and balance figures shown in the stats header (which use the base burn plus the full activity total) SHALL remain unchanged.
 
-#### Scenario: Score ignores activities
-- **WHEN** activities are logged for a day
-- **THEN** that day's nutrition score and heatmap cell color are unchanged from what the meals alone produce
+#### Scenario: Active day expands the scoring allowance
+- **WHEN** a day has activities burning 600 kcal and the calorie goal is 2400
+- **THEN** the day nutrition score treats 2700 kcal (2400 + 0.5 × 600) as the on-target intake, so eating more on an active day is not penalized
+
+#### Scenario: Header figures still use the full activity total
+- **WHEN** a day has activities burning 600 kcal, base burn 2400, consumed 2700
+- **THEN** the header burned figure (3000) and balance figure (−300) are computed from the full activity total and base burn, unchanged by the score's 50% add-back

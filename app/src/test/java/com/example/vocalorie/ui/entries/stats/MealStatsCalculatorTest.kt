@@ -1,6 +1,7 @@
 package com.example.vocalorie.ui.entries.stats
 
 import com.example.vocalorie.model.ConfidenceLevel
+import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.SavedMeal
 import java.time.Instant
@@ -215,48 +216,80 @@ class MealStatsCalculatorTest {
     }
 
     @Test
-    fun caloriesNormalizationPeaksAt2600AndFallsOffLinearlyClampedAtBounds() {
-        assertEquals(0.0, normalizeCalories(2200.0), 0.0001)
-        assertEquals(100.0, normalizeCalories(2600.0), 0.0001)
-        assertEquals(0.0, normalizeCalories(3000.0), 0.0001)
-        assertEquals(0.0, normalizeCalories(2100.0), 0.0001)
-        assertEquals(0.0, normalizeCalories(3100.0), 0.0001)
-        assertEquals(50.0, normalizeCalories(2400.0), 0.0001)
+    fun defaultGoalsDeriveExpectedMacroTargets() {
+        val targets = NutritionGoals.DEFAULT.macroTargets()
+        assertEquals(180.0, targets.proteinG, 0.0001)
+        assertEquals(240.0, targets.carbsG, 0.0001)
+        assertEquals(80.0, targets.fatG, 0.0001)
     }
 
     @Test
-    fun proteinNormalizationRisesFrom90gTo180gThenPlateaus() {
-        assertEquals(0.0, normalizeProtein(90.0), 0.0001)
-        assertEquals(0.0, normalizeProtein(50.0), 0.0001)
-        assertEquals(100.0, normalizeProtein(180.0), 0.0001)
-        assertEquals(100.0, normalizeProtein(220.0), 0.0001)
-        assertEquals(50.0, normalizeProtein(135.0), 0.0001)
+    fun macroTargetsScaleWithCalorieGoal() {
+        val targets = NutritionGoals(3000, 30, 40, 30).macroTargets()
+        assertEquals(225.0, targets.proteinG, 0.0001)
+        assertEquals(300.0, targets.carbsG, 0.0001)
+        assertEquals(100.0, targets.fatG, 0.0001)
     }
 
     @Test
-    fun carbsNormalizationDecaysFrom0To270Clamped() {
-        assertEquals(100.0, normalizeCarbs(0.0), 0.0001)
-        assertEquals(0.0, normalizeCarbs(270.0), 0.0001)
-        assertEquals(0.0, normalizeCarbs(320.0), 0.0001)
-        assertTrue(normalizeCarbs(90.0) < 100.0 && normalizeCarbs(90.0) > 0.0)
+    fun calorieAdherencePenalizesOvershootMoreThanUndershoot() {
+        assertEquals(100.0, calorieAdherence(2400.0, 2400.0), 0.0001) // on target
+        assertEquals(100.0, calorieAdherence(2520.0, 2400.0), 0.0001) // r=1.05 band edge
+        assertEquals(75.0, calorieAdherence(2640.0, 2400.0), 0.0001) // r=1.10 over
+        assertEquals(83.3333, calorieAdherence(2160.0, 2400.0), 0.001) // r=0.90 under
+        assertEquals(0.0, calorieAdherence(3000.0, 2400.0), 0.0001) // r=1.25 over bound
+        assertEquals(0.0, calorieAdherence(1560.0, 2400.0), 0.0001) // r=0.65 under bound
     }
 
     @Test
-    fun fatNormalizationDecaysFrom0To90Clamped() {
-        assertEquals(100.0, normalizeFat(0.0), 0.0001)
-        assertEquals(0.0, normalizeFat(90.0), 0.0001)
-        assertEquals(0.0, normalizeFat(150.0), 0.0001)
-        assertEquals(50.0, normalizeFat(45.0), 0.0001)
+    fun proteinAdherenceHasFirmFloorAndSoftCeiling() {
+        assertEquals(100.0, proteinAdherence(180.0, 180.0), 0.0001)
+        assertEquals(100.0, proteinAdherence(270.0, 180.0), 0.0001) // 1.5x not penalized
+        assertEquals(50.0, proteinAdherence(135.0, 180.0), 0.0001) // r=0.75
+        assertEquals(0.0, proteinAdherence(90.0, 180.0), 0.0001) // r=0.5 floor
     }
 
     @Test
-    fun weightedScoreCombinesAllFourNormalizedMetrics() {
-        // calories=2600 -> 100, protein=180 -> 100, carbs=270 -> 0, fat=90 -> 0
-        val totals = DailyNutritionTotals(caloriesKcal = 2600.0, proteinG = 180.0, carbsG = 270.0, fatG = 90.0)
+    fun carbsAndFatScoreZeroWhenAbsentAgainstNonZeroTargets() {
+        assertEquals(0.0, carbsAdherence(0.0, 240.0), 0.0001)
+        assertEquals(0.0, fatAdherence(0.0, 80.0), 0.0001)
+        assertEquals(100.0, carbsAdherence(240.0, 240.0), 0.0001)
+        assertEquals(100.0, fatAdherence(80.0, 80.0), 0.0001)
+    }
 
-        val score = nutritionScore(totals)!!
+    @Test
+    fun onTargetDayScores100() {
+        val totals = DailyNutritionTotals(caloriesKcal = 2400.0, proteinG = 180.0, carbsG = 240.0, fatG = 80.0)
+        assertEquals(100.0, nutritionScore(totals, NutritionGoals.DEFAULT)!!, 0.0001)
+    }
 
-        assertEquals((100.0 * 10 + 100.0 * 3 + 0.0 * 2 + 0.0 * 1) / 16.0, score, 0.0001)
+    @Test
+    fun zeroCarbsAndFatNoLongerScore100() {
+        val totals = DailyNutritionTotals(caloriesKcal = 2400.0, proteinG = 180.0, carbsG = 0.0, fatG = 0.0)
+        // calories 100, protein 100, carbs 0, fat 0 -> base = 100*0.40 + 100*0.30 = 70
+        assertEquals(70.0, nutritionScore(totals, NutritionGoals.DEFAULT)!!, 0.0001)
+    }
+
+    @Test
+    fun activityRaisesTheCalorieTarget() {
+        val totals = DailyNutritionTotals(caloriesKcal = 2700.0, proteinG = 180.0, carbsG = 240.0, fatG = 80.0)
+        // goal 2400 + 0.5*600 = 2700 target -> calories on target -> full score
+        assertEquals(100.0, nutritionScore(totals, NutritionGoals.DEFAULT, activityBurnedKcal = 600.0)!!, 0.0001)
+        // without the activity add-back, 2700 kcal overshoots the 2400 target and scores lower
+        assertTrue(nutritionScore(totals, NutritionGoals.DEFAULT, activityBurnedKcal = 0.0)!! < 100.0)
+    }
+
+    @Test
+    fun qualityPenaltyIsCappedAndProportional() {
+        val target = 2400.0
+        val within = DailyNutritionTotals(caloriesKcal = 2400.0, proteinG = 0.0, carbsG = 0.0, fatG = 0.0)
+        assertEquals(1.0, qualityMultiplier(within, target), 0.0001)
+        // sugar 120g against a 60g limit (2x) docks 0.10
+        val highSugar = within.copy(sugarG = 120.0)
+        assertEquals(0.90, qualityMultiplier(highSugar, target), 0.0001)
+        // all three at >=2x their limits floor the multiplier at 0.70
+        val allOver = within.copy(saturatedFatG = 60.0, sugarG = 120.0, saltG = 10.0)
+        assertEquals(0.70, qualityMultiplier(allOver, target), 0.0001)
     }
 
     private fun meal(id: Long, date: LocalDate, hour: Int = 9, calories: Double = 1.0): SavedMeal = SavedMeal(
