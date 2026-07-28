@@ -1,6 +1,8 @@
 package com.example.vocalorie.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,6 +27,8 @@ import com.example.vocalorie.data.toCachedItemEntities
 import com.example.vocalorie.data.toCachedMealEntity
 import com.example.vocalorie.data.withItemsResolvedFromCache
 import com.example.vocalorie.data.VocalorieDatabase
+import com.example.vocalorie.data.exportBackupJson
+import com.example.vocalorie.data.importBackupJson
 import com.example.vocalorie.data.searchSavedMeals
 import com.example.vocalorie.data.toEntity
 import com.example.vocalorie.data.toSavedActivity
@@ -44,12 +48,15 @@ import com.example.vocalorie.ui.entries.ActivityEntryOverlay
 import com.example.vocalorie.ui.entries.EntriesTab
 import com.example.vocalorie.ui.entries.MealEntriesScreen
 import com.example.vocalorie.ui.entries.MealEntryOverlay
+import com.example.vocalorie.ui.entries.selectedDayTimestampMillis
 import com.example.vocalorie.ui.settings.SettingsScreen
 import com.example.vocalorie.ui.voice.GalleryImageAttachment
 import com.example.vocalorie.ui.voice.VoiceInputOverlay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZoneId
 
 @Composable
 fun MealCaptureScreen(
@@ -84,6 +91,7 @@ fun MealCaptureScreen(
     var baseCaloriesBurned by remember { mutableIntStateOf(themeSettingsStore.getBaseCaloriesBurned()) }
     var kcalPerStep by remember { mutableDoubleStateOf(themeSettingsStore.getKcalPerStep()) }
     var selectedTab by rememberSaveable { mutableStateOf(EntriesTab.MEALS) }
+    var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
     var draft by remember { mutableStateOf<EditableMealDraft?>(null) }
     var savedMeals by remember { mutableStateOf<List<SavedMeal>>(emptyList()) }
     var cachedMeals by remember { mutableStateOf<List<CachedMealEntity>>(emptyList()) }
@@ -149,6 +157,11 @@ fun MealCaptureScreen(
         refreshThemeState()
     }
 
+    // Timestamp for a new entry: the currently-viewed day at the current wall-clock time
+    // (offset 0 = today ≈ now). Editing an existing entry keeps its own stored timestamp.
+    fun newEntryTimestampMillis(): Long =
+        selectedDayTimestampMillis(selectedDayOffset, Instant.now(), ZoneId.systemDefault())
+
     fun openActivityEditor(activity: SavedActivity?) {
         selectedActivity = activity
         selectedActivityDraft = activity?.toEditableDraft() ?: EditableActivityDraft(
@@ -158,7 +171,7 @@ fun MealCaptureScreen(
             caloriesBurnedKcal = "",
             durationMinutes = "",
             steps = "",
-            createdAtEpochMillis = System.currentTimeMillis(),
+            createdAtEpochMillis = newEntryTimestampMillis(),
         )
         showActivityOverlay = true
         activityError = null
@@ -171,6 +184,49 @@ fun MealCaptureScreen(
         selectedActivityDraft = null
         activityError = null
         activityMessage = null
+    }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                settingsMessage = null
+                try {
+                    val json = withContext(Dispatchers.IO) { exportBackupJson(database, System.currentTimeMillis()) }
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                            ?: error("Could not open the chosen file for writing.")
+                    }
+                    settingsMessage = "Exported your data backup."
+                } catch (throwable: Throwable) {
+                    settingsMessage = throwable.message ?: "Could not export data."
+                }
+            }
+        }
+    }
+
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                settingsMessage = null
+                try {
+                    val json = withContext(Dispatchers.IO) {
+                        context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+                            ?: error("Could not open the chosen file for reading.")
+                    }
+                    val result = withContext(Dispatchers.IO) { importBackupJson(database, json) }
+                    refreshHistory()
+                    refreshActivities()
+                    refreshCaches()
+                    settingsMessage = "Imported ${result.imported}, skipped ${result.skipped} already present."
+                } catch (throwable: Throwable) {
+                    settingsMessage = throwable.message ?: "Could not import data."
+                }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -360,6 +416,8 @@ fun MealCaptureScreen(
                 refreshToolSettings()
                 settingsMessage = "Restored default system prompt."
             },
+            onExportData = { exportBackupLauncher.launch("vocalorie-backup.json") },
+            onImportData = { importBackupLauncher.launch(arrayOf("application/json")) },
             onBack = { showSettings = false },
         )
     } else {
@@ -377,6 +435,13 @@ fun MealCaptureScreen(
             onOpenActivity = { openActivityEditor(it) },
             onAddActivity = { openActivityEditor(null) },
             onOpenSettings = { showSettings = true },
+            onRefresh = {
+                refreshHistory()
+                refreshActivities()
+                refreshCaches()
+            },
+            selectedDayOffset = selectedDayOffset,
+            onSelectedDayOffsetChange = { selectedDayOffset = it },
             baseCaloriesBurned = baseCaloriesBurned,
             modifier = modifier,
             voiceButton = {
@@ -448,7 +513,7 @@ fun MealCaptureScreen(
                             scope.launch {
                                 isSaving = true
                                 try {
-                                    val savedId = withContext(Dispatchers.IO) { mealDao.insert(mealDraft.toEntity()) }
+                                    val savedId = withContext(Dispatchers.IO) { mealDao.insert(mealDraft.toEntity(createdAtEpochMillis = newEntryTimestampMillis())) }
                                     refreshHistory()
                                     upsertCachesFromReviewedMeal(mealDraft)
                                     selectedMeal = savedMeals.firstOrNull { it.id == savedId }

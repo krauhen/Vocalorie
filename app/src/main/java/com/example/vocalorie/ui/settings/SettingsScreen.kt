@@ -92,6 +92,8 @@ fun SettingsScreen(
     onSaveOpenAiModelChoice: (String) -> Unit,
     onSaveSystemPrompt: (String) -> Unit,
     onResetSystemPrompt: () -> Unit,
+    onExportData: () -> Unit,
+    onImportData: () -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -137,6 +139,8 @@ fun SettingsScreen(
             onSaveOpenAiModelChoice = onSaveOpenAiModelChoice,
             onSaveSystemPrompt = onSaveSystemPrompt,
             onResetSystemPrompt = onResetSystemPrompt,
+            onExportData = onExportData,
+            onImportData = onImportData,
         )
     }
 }
@@ -177,6 +181,8 @@ private fun SettingsContent(
     onSaveOpenAiModelChoice: (String) -> Unit,
     onSaveSystemPrompt: (String) -> Unit,
     onResetSystemPrompt: () -> Unit,
+    onExportData: () -> Unit,
+    onImportData: () -> Unit,
 ) {
     var primaryColor by remember(themeColors.primary) { mutableStateOf(themeColors.primary) }
     var secondaryColor by remember(themeColors.secondary) { mutableStateOf(themeColors.secondary) }
@@ -343,6 +349,23 @@ private fun SettingsContent(
                     onClick = { onSaveKcalPerStep(kcalPer1000StepsInput) },
                     enabled = enabled && kcalPer1000StepsInput.isNotBlank(),
                 ) { Text("Save step burn") }
+            }
+        }
+
+        SectionTitle("Backup")
+        Card(modifier = Modifier.fillMaxWidth()) {
+            ListItem(
+                headlineContent = { Text("Export / import data") },
+                supportingContent = {
+                    Text(
+                        "Export all meals, activities, and reuse caches to a JSON file (no API keys). " +
+                            "Import merges a file in, skipping entries that already exist — best for restoring into a fresh install.",
+                    )
+                },
+            )
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onExportData, enabled = enabled) { Text("Export data") }
+                OutlinedButton(onClick = onImportData, enabled = enabled) { Text("Import data") }
             }
         }
 

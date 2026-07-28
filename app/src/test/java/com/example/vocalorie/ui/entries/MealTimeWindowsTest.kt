@@ -100,6 +100,27 @@ class MealTimeWindowsTest {
     }
 
     @Test
+    fun selectedDayTimestampUsesViewedDayAtCurrentWallClockTime() {
+        // Offset 0 resolves to ~now (today at the current time-of-day).
+        assertEquals(now.toEpochMilli(), selectedDayTimestampMillis(dayOffset = 0, now = now, zone = zone))
+
+        // Past/future offsets land on that calendar day at the same 15:00 wall-clock time.
+        val yesterdayAtNowTime = LocalDateTime.of(2026, 6, 29, 15, 0).atZone(zone).toInstant()
+        val tomorrowAtNowTime = LocalDateTime.of(2026, 7, 1, 15, 0).atZone(zone).toInstant()
+        assertEquals(yesterdayAtNowTime.toEpochMilli(), selectedDayTimestampMillis(dayOffset = 1, now = now, zone = zone))
+        assertEquals(tomorrowAtNowTime.toEpochMilli(), selectedDayTimestampMillis(dayOffset = -1, now = now, zone = zone))
+    }
+
+    @Test
+    fun selectedDayTimestampFallsInsideThatDaysWindow() {
+        for (offset in listOf(-2, 0, 1, 5)) {
+            val stamp = selectedDayTimestampMillis(dayOffset = offset, now = now, zone = zone)
+            val window = selectedDayWindow(dayOffset = offset, now = now, zone = zone)
+            assertTrue("offset $offset stamp should be inside its day window", window.contains(stamp))
+        }
+    }
+
+    @Test
     fun negativeDayOffsetNavigatesToTomorrow() {
         val window = selectedDayWindow(dayOffset = -1, now = now, zone = zone)
         val tomorrowStart = LocalDateTime.of(2026, 7, 1, 0, 0).atZone(zone).toInstant()

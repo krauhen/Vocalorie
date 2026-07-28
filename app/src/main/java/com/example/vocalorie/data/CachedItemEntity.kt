@@ -2,12 +2,14 @@ package com.example.vocalorie.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 /**
  * One cached food item per normalized item name, kept separate from meal history. Nutrition is
  * stored normalized to a 100 g/ml basis so it can be scaled to any requested amount on reuse.
  * Populated only when a reviewed meal is saved.
  */
+@Serializable
 @Entity(tableName = "cached_items")
 data class CachedItemEntity(
     @PrimaryKey val normalizedName: String,

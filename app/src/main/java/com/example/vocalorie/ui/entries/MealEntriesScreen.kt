@@ -36,13 +36,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -90,6 +96,10 @@ import java.time.temporal.ChronoUnit
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
+/** Minimum time the pull-to-refresh indicator stays up, so a near-instant reload still feels deliberate. */
+private const val REFRESH_INDICATOR_MIN_MILLIS: Long = 600L
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MealEntriesScreen(
     meals: List<SavedMeal>,
@@ -100,15 +110,23 @@ fun MealEntriesScreen(
     onOpenActivity: (SavedActivity) -> Unit = {},
     onAddActivity: () -> Unit = {},
     onOpenSettings: () -> Unit,
+    onRefresh: suspend () -> Unit = {},
+    selectedDayOffset: Int = 0,
+    onSelectedDayOffsetChange: (Int) -> Unit = {},
     baseCaloriesBurned: Int = 2400,
     modifier: Modifier = Modifier,
     voiceButton: @Composable () -> Unit,
 ) {
     var selectedStatsRangeName by rememberSaveable { mutableStateOf(MealStatsRange.LAST_30_DAYS.name) }
-    var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
     var selectedStatsModeName by rememberSaveable { mutableStateOf(MealStatsWindowMode.SINCE_MIDNIGHT.name) }
     var customRollingStatsMinutes by rememberSaveable { mutableIntStateOf(DEFAULT_ROLLING_STATS_MINUTES) }
-    val now = remember(meals) { Instant.now() }
+    // `now` drives future/past classification. It advances whenever entries reload (LaunchedEffect
+    // below) and on an explicit pull-to-refresh, so a passed-time entry stops being crossed out
+    // without requiring a write. Previously it was memoized against `meals`, so it only moved on a save.
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(meals, activities) { now = Instant.now() }
+    val refreshScope = rememberCoroutineScope()
+    var isRefreshing by remember { mutableStateOf(false) }
     val zone = remember { ZoneId.systemDefault() }
     val visibleMeals = remember(meals, selectedDayOffset, now, zone) { filterMealsForDay(meals, selectedDayOffset, now, zone) }
     val visibleActivities = remember(activities, selectedDayOffset, now, zone) { filterActivitiesForDay(activities, selectedDayOffset, now, zone) }
@@ -143,8 +161,26 @@ fun MealEntriesScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                now = Instant.now()
+                refreshScope.launch {
+                    isRefreshing = true
+                    try {
+                        // The local DB reload is near-instant; hold the indicator briefly so the
+                        // pull-to-refresh reads as a deliberate action rather than a flicker.
+                        onRefresh()
+                        delay(REFRESH_INDICATOR_MIN_MILLIS)
+                    } finally {
+                        isRefreshing = false
+                    }
+                }
+            },
             modifier = Modifier.fillMaxSize().statusBarsPadding(),
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -152,9 +188,9 @@ fun MealEntriesScreen(
                 DayNavigator(
                     label = dayWindow.label,
                     canGoNewer = true,
-                    onOlder = { selectedDayOffset += 1 },
-                    onNewer = { selectedDayOffset -= 1 },
-                    onToday = { selectedDayOffset = 0 },
+                    onOlder = { onSelectedDayOffsetChange(selectedDayOffset + 1) },
+                    onNewer = { onSelectedDayOffsetChange(selectedDayOffset - 1) },
+                    onToday = { onSelectedDayOffsetChange(0) },
                 )
             }
             item {
@@ -185,7 +221,7 @@ fun MealEntriesScreen(
                     zone = zone,
                     selectedDate = LocalDate.ofInstant(now, zone).minusDays(selectedDayOffset.toLong()),
                     onDateSelected = { date ->
-                        selectedDayOffset = ChronoUnit.DAYS.between(date, LocalDate.ofInstant(now, zone)).toInt()
+                        onSelectedDayOffsetChange(ChronoUnit.DAYS.between(date, LocalDate.ofInstant(now, zone)).toInt())
                     },
                 )
             }
@@ -217,6 +253,7 @@ fun MealEntriesScreen(
                     items(visibleActivities, key = { it.id }) { activity -> ActivityEntryRow(activity = activity, now = now, onClick = { onOpenActivity(activity) }) }
                 }
             }
+        }
         }
 
         Box(

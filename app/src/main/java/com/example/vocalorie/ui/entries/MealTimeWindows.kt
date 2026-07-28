@@ -6,6 +6,7 @@ import com.example.vocalorie.model.SavedActivity
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
@@ -81,6 +82,17 @@ fun selectedDayWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindo
         end = date.plusDays(1).atStartOfDay(zone).toInstant(),
         endInclusive = false,
     )
+}
+
+/**
+ * Timestamp for a newly created entry added while viewing the day at [dayOffset]: that calendar
+ * day at the current wall-clock time. Offset 0 (today) resolves to ~[now], preserving the prior
+ * "added now" behavior; a past/future offset lands the entry on that day at the current time.
+ */
+fun selectedDayTimestampMillis(dayOffset: Int, now: Instant, zone: ZoneId): Long {
+    val date = LocalDate.ofInstant(now, zone).minusDays(dayOffset.toLong())
+    val time = LocalTime.ofInstant(now, zone)
+    return date.atTime(time).atZone(zone).toInstant().toEpochMilli()
 }
 
 fun filterMealsForDay(meals: List<SavedMeal>, dayOffset: Int, now: Instant, zone: ZoneId): List<SavedMeal> {
