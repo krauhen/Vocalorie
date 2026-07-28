@@ -95,3 +95,10 @@ The system SHALL render a calendar-style heatmap of a fixed 100-calendar-day win
 #### Scenario: Heatmap never shows a future date
 - **WHEN** the user navigates to a future date via the day navigator
 - **THEN** the heatmap's visible window is unaffected and still ends at today
+
+### Requirement: Macro values in the day/window stats header use semantic color coding
+The system SHALL apply the same semantic macro color coding — Protein blue, Carbs yellow, Fat red — to the macronutrient values shown in the selectable day/window stats header (the "Since 00:00"-style macro line in `SelectableStatsHeader`, `app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt`), reusing the shared theme-aware macro color tokens so this header and the list rows stay visually consistent. The tile/heatmap stats overview shows no per-macro gram values and is out of scope. Textual labels for macros SHALL be retained so color is not the only signal.
+
+#### Scenario: Header macros match list-row colors
+- **WHEN** the day/window stats header shows the Protein/Carbs/Fat macro line
+- **THEN** protein renders blue, carbs yellow, and fat red, matching the colors used in the list rows and keeping their text labels

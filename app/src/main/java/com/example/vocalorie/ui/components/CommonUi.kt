@@ -221,7 +221,7 @@ fun SourceUrlRow(label: String, url: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            url,
+            "Sourced · ${url.sourceDomainOrUrl()}",
             modifier = Modifier
                 .weight(1f)
                 .clickable {
@@ -231,11 +231,34 @@ fun SourceUrlRow(label: String, url: String) {
                 },
             color = MaterialTheme.colorScheme.primary,
             textDecoration = TextDecoration.Underline,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
 }
+
+/**
+ * Subtle indicator for an item whose nutrition values are an unsourced LLM estimate (blank source).
+ * Pairs with [SourceUrlRow] so the two states — sourced vs estimate — are always visible.
+ */
+@Composable
+fun SourceEstimateRow(label: String = "Source") {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            "Estimate · not sourced",
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** Best-effort host for display, e.g. "https://fdc.nal.usda.gov/x" -> "fdc.nal.usda.gov". */
+fun String.sourceDomainOrUrl(): String =
+    runCatching { java.net.URI(trim()).host }.getOrNull()?.removePrefix("www.")?.takeIf { it.isNotBlank() } ?: trim()
 
 @Composable
 fun ErrorCard(message: String, diagnostic: String?, onRetry: (() -> Unit)? = null, enabled: Boolean = true) {

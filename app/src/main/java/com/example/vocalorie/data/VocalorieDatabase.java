@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(
     entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 public abstract class VocalorieDatabase extends RoomDatabase {
@@ -147,6 +147,15 @@ public abstract class VocalorieDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_8_9 = new Migration(8, 9) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // Additive: food-type category per meal, classified by the model. Existing
+            // rows default to OTHER (the neutral/default icon).
+            database.execSQL("ALTER TABLE meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'");
+        }
+    };
+
     private static volatile VocalorieDatabase instance;
 
     public static VocalorieDatabase get(Context context) {
@@ -161,7 +170,7 @@ public abstract class VocalorieDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         VocalorieDatabase.class,
                         "vocalorie.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8).build();
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build();
                 instance = current;
             }
             return current;

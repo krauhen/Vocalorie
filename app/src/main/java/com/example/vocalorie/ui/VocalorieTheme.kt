@@ -173,6 +173,37 @@ private fun buildColorScheme(colors: ThemeColors, isDark: Boolean): ColorScheme 
     }
 }
 
+/**
+ * Fixed semantic colors for the three macronutrients, used to color macro values in
+ * list rows and the stats overview. These are intentionally independent of the user's
+ * theme palette so protein/carbs/fat always read consistently. Shades are tuned per
+ * light/dark for legibility; [fat] is chosen distinct from the calorie-state / error
+ * reds elsewhere in the app so the two reds are not confused. Text labels always
+ * accompany these colors, so color is never the only signal.
+ */
+data class MacroColors(
+    val protein: Color,
+    val carbs: Color,
+    val fat: Color,
+)
+
+private val LightMacroColors = MacroColors(
+    protein = Color(0xFF1E6BB8), // blue
+    carbs = Color(0xFFB8860B),   // dark goldenrod, legible on light
+    fat = Color(0xFFC0392B),     // brick red, distinct from error 0xFFBA1A1A
+)
+
+private val DarkMacroColors = MacroColors(
+    protein = Color(0xFF74B4F0),
+    carbs = Color(0xFFE6C34A),
+    fat = Color(0xFFE5867E),
+)
+
+/** Theme-aware accessor for the semantic macro colors. */
+@Composable
+fun macroColors(isDark: Boolean = isSystemInDarkTheme()): MacroColors =
+    if (isDark) DarkMacroColors else LightMacroColors
+
 @Composable
 fun VocalorieTheme(themeColors: ThemeColors, content: @Composable () -> Unit) {
     val context = LocalContext.current

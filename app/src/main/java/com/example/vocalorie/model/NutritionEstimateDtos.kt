@@ -22,7 +22,18 @@ data class NutritionAgentResult(
     val confidence: ConfidenceLevel,
     @property:LLMDescription("Always true because nutrition estimates require human review.")
     val needsHumanReview: Boolean,
+    @property:LLMDescription("The overall food-type category of the meal. Choose exactly one: MEAL, SNACK, DRINK, DESSERT, or OTHER when none clearly applies.")
+    val category: MealCategory = MealCategory.OTHER,
 )
+
+@Serializable
+enum class MealCategory {
+    MEAL,
+    SNACK,
+    DRINK,
+    DESSERT,
+    OTHER,
+}
 
 @Serializable
 data class FoodItemEstimate(

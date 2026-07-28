@@ -321,7 +321,7 @@ private fun ReadOnlyFoodItemCard(item: FoodItemEstimate) {
             NutritionRow("of which sugars", "${item.sugarG.formatNullable()} g", indent = true)
             NutritionRow("Protein", "${item.proteinG.formatNullable()} g")
             NutritionRow("Salt", "${item.saltG.formatNullable()} g")
-            if (item.source.isNotBlank()) SourceUrlRow("Source URL", item.source)
+            if (item.source.isNotBlank()) SourceUrlRow("Source", item.source) else SourceEstimateRow("Source")
         }
     }
 }

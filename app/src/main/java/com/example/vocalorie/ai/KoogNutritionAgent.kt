@@ -1,22 +1,27 @@
 package com.example.vocalorie.ai
 
+import ai.koog.agents.core.agent.AIAgent
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.openai.OpenAILLMClient
 import ai.koog.prompt.executor.clients.openai.OpenAIModels
 import ai.koog.prompt.executor.clients.openai.base.structure.OpenAIBasicJsonSchemaGenerator
 import ai.koog.prompt.executor.llms.MultiLLMPromptExecutor
+import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.message.MessagePart
 import ai.koog.prompt.params.LLMParams
 import ai.koog.prompt.llm.LLMProvider
 import ai.koog.prompt.structure.json.JsonStructure
 import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.FoodItemEstimate
+import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.settings.OpenAiModelChoice
 import com.example.vocalorie.settings.ToolSettings
+import com.example.vocalorie.tools.vocalorieToolRegistry
 import com.example.vocalorie.ui.voice.GalleryImageAttachment
+import java.net.URI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -41,11 +46,21 @@ object KoogNutritionAgent {
 
         Split composite meals into individual food items. For example, estimate "coffee with milk" as two items: "black coffee" and "milk" with separate nutrition values.
 
+        Classify the whole meal into exactly one category: MEAL, SNACK, DRINK, DESSERT, or OTHER. Use DRINK for beverages (coffee, juice, soda, alcohol), DESSERT for sweets, SNACK for small between-meal items, MEAL for full meals, and OTHER only when none clearly applies.
         Generate a short, natural title (2-5 words) summarizing the whole meal, in German, e.g. "Hähnchen Caesar Salat".
         Always reply in German. Use German for all quantity descriptions, reasoning, assumptions, and warnings, regardless of the user's query language.
         Always mark needsHumanReview as true.
         The user may write the query in German, including German decimal commas like 1,5 and German units such as EL (tablespoon), TL (teaspoon), Stück (piece), Scheibe (slice), Prise (pinch), and Portion (portion); interpret these the same as their English equivalents when estimating amountGml.
         Recognize German food names and descriptions directly without needing to translate them first.
+        """.trimIndent()
+
+    private val RESEARCH_SYSTEM_PROMPT: String = """
+        You are Vocalorie's nutrition research assistant.
+        Use the brave_search tool to find candidate food-composition and nutrition pages for the foods in the user's meal query, then use the web_fetch tool to open and read the most relevant pages.
+        Only report source URLs that you actually fetched with web_fetch; never invent, complete, or guess URLs from memory.
+        Prefer reputable food-composition databases such as German BLS, USDA, CoFID, Ciqual, Frida, AFCD, Swiss Food Composition Database, NEVO, Livsmedelsverket, CNF, Open Food Facts, and FAO-INFOODS.
+        When done, list each food together with the exact URL you fetched and the key nutrition values you found there.
+        If you cannot find or fetch a reliable page for a food, say so plainly instead of guessing a URL.
         """.trimIndent()
 
     val REQUIRED_SYSTEM_PROMPT_PHRASES: List<String> = listOf(
@@ -61,6 +76,7 @@ object KoogNutritionAgent {
         "Every food item's source must be a concrete http/https food-entry page URL",
         "leave source empty rather than naming a database",
         "Split composite meals into individual food items",
+        "Classify the whole meal into exactly one category",
         "Generate a short, natural title",
         "Always reply in German",
     )
@@ -106,6 +122,18 @@ object KoogNutritionAgent {
                 httpClientFactory = KtorKoogHttpClient.Factory(),
             ),
         )
+        val groundingEnabled = toolSettings.hasBraveApiKey && toolSettings.maxResearchToolCalls > 0
+        val fetchedUrls = mutableSetOf<String>()
+        val researchNotes = if (groundingEnabled) {
+            runCatching { runGroundingAgent(executor, model, query, toolSettings, fetchedUrls) }
+                .getOrElse {
+                    fetchedUrls.clear()
+                    ""
+                }
+        } else {
+            ""
+        }
+
         val effectiveSystemPrompt = toolSettings.systemPromptOverride?.takeIf { it.isNotBlank() } ?: DEFAULT_SYSTEM_PROMPT
         val prompt = prompt("vocalorie-nutrition-estimate", params = LLMParams(schema = outputStructure.schema)) {
             system(effectiveSystemPrompt)
@@ -125,6 +153,10 @@ object KoogNutritionAgent {
                             append(amountHint)
                             append(" Use that amount together with the image.")
                         }
+                        if (researchNotes.isNotBlank()) {
+                            append("\n\nVerified research notes (use these real source URLs when relevant):\n")
+                            append(researchNotes)
+                        }
                     }
                 )
                 imageAttachments.forEach { image(it.image) }
@@ -135,7 +167,68 @@ object KoogNutritionAgent {
         val responseText = response.parts.filterIsInstance<MessagePart.Text>().joinToString("\n") { it.text }
         if (responseText.isBlank()) throw IllegalStateException("Koog nutrition estimate returned an empty response.")
 
-        return outputStructure.parse(responseText)
+        return outputStructure.parse(responseText).withVerifiedSources(fetchedUrls, groundingEnabled)
+    }
+
+    private suspend fun runGroundingAgent(
+        executor: MultiLLMPromptExecutor,
+        model: LLModel,
+        query: String,
+        toolSettings: ToolSettings,
+        fetchedUrls: MutableSet<String>,
+    ): String {
+        // Collect a URL only once web_fetch has actually retrieved it with a 2xx response,
+        // so a guessed URL that 404s can never be treated as a real source.
+        val toolRegistry = vocalorieToolRegistry(toolSettings) { fetchedUrl ->
+            normalizeSourceUrl(fetchedUrl)?.let { fetchedUrls.add(it) }
+        }
+        val agent = AIAgent(
+            promptExecutor = executor,
+            llmModel = model,
+            toolRegistry = toolRegistry,
+            systemPrompt = RESEARCH_SYSTEM_PROMPT,
+            temperature = 0.0,
+            maxIterations = toolSettings.maxAgentIterations,
+        )
+        val researchInput = buildString {
+            append("Research real, concrete food-composition and nutrition pages for the foods in this meal query, ")
+            append("then report the exact page URLs you fetched with the key nutrition values you found:\n")
+            append(query)
+        }
+        return agent.run(researchInput)
+    }
+
+    private fun NutritionAgentResult.withVerifiedSources(
+        fetchedUrls: Set<String>,
+        groundingEnabled: Boolean,
+    ): NutritionAgentResult {
+        if (!groundingEnabled || fetchedUrls.isEmpty()) {
+            return copy(items = items.map { it.copy(source = "") })
+        }
+        return copy(
+            items = items.map { item ->
+                val normalized = normalizeSourceUrl(item.source)
+                if (normalized != null && normalized in fetchedUrls) item else item.copy(source = "")
+            },
+        )
+    }
+
+    private fun normalizeSourceUrl(raw: String): String? {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return null
+        val normalized = runCatching {
+            val uri = URI(trimmed)
+            val scheme = uri.scheme?.lowercase()
+            val host = uri.host?.lowercase()
+            if (scheme.isNullOrBlank() || host.isNullOrBlank()) return@runCatching trimmed
+            val portPart = if (uri.port != -1) ":${uri.port}" else ""
+            val path = uri.rawPath.orEmpty()
+            val query = uri.rawQuery?.let { "?$it" }.orEmpty()
+            val fragment = uri.rawFragment?.let { "#$it" }.orEmpty()
+            "$scheme://$host$portPart$path$query$fragment"
+        }.getOrDefault(trimmed)
+        val withoutTrailingSlash = if (normalized.endsWith("/")) normalized.dropLast(1) else normalized
+        return withoutTrailingSlash.ifBlank { null }
     }
 
     private fun sampleResult(query: String) = NutritionAgentResult(
@@ -171,6 +264,7 @@ object KoogNutritionAgent {
         warnings = listOf("Nutrition values are estimates and require human review."),
         confidence = ConfidenceLevel.MEDIUM,
         needsHumanReview = true,
+        category = MealCategory.MEAL,
     )
 
     private fun sampleCucumberResult(query: String) = NutritionAgentResult(
@@ -206,6 +300,7 @@ object KoogNutritionAgent {
         warnings = listOf("Nutrition values are estimates and require human review."),
         confidence = ConfidenceLevel.MEDIUM,
         needsHumanReview = true,
+        category = MealCategory.OTHER,
     )
 }
 

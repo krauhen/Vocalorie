@@ -4,6 +4,7 @@ import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.FoodItemEstimate
+import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.SavedMeal
@@ -34,6 +35,7 @@ fun NutritionAgentResult.toEditableDraft(): EditableMealDraft = EditableMealDraf
     confidence = confidence,
     needsHumanReview = needsHumanReview,
     createdAtEpochMillis = null,
+    category = category,
 ).withTotalsSummedFromItems()
 
 fun EditableMealDraft.toEntity(createdAtEpochMillis: Long = System.currentTimeMillis()): MealEntity {
@@ -55,6 +57,7 @@ fun EditableMealDraft.toEntity(createdAtEpochMillis: Long = System.currentTimeMi
         warningsText = warningsText.trim(),
         confidence = confidence.name,
         needsHumanReview = needsHumanReview,
+        category = category.name,
     )
 }
 
@@ -74,6 +77,7 @@ fun MealEntity.toSavedMeal(): SavedMeal {
         warnings = warningsText.toLinesList(),
         confidence = runCatching { ConfidenceLevel.valueOf(confidence) }.getOrDefault(ConfidenceLevel.LOW),
         needsHumanReview = needsHumanReview,
+        category = runCatching { MealCategory.valueOf(category) }.getOrDefault(MealCategory.OTHER),
     )
 }
 
@@ -94,6 +98,7 @@ fun SavedMeal.toEditableDraft(): EditableMealDraft = EditableMealDraft(
     confidence = confidence,
     needsHumanReview = needsHumanReview,
     createdAtEpochMillis = createdAtEpochMillis,
+    category = category,
 ).withTotalsSummedFromItems()
 
 /**

@@ -24,6 +24,7 @@ class NutritionPromptContractTest {
         assertTrue(promptSource.contains("Every food item's source must be a concrete http/https food-entry page URL"))
         assertTrue(promptSource.contains("leave source empty rather than naming a database"))
         assertTrue(promptSource.contains("Split composite meals into individual food items"))
+        assertTrue(promptSource.contains("Classify the whole meal into exactly one category"))
         assertTrue(promptSource.contains("Generate a short, natural title"))
         assertTrue(promptSource.contains("Always reply in German"))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
@@ -49,7 +50,7 @@ class NutritionPromptContractTest {
         val databaseSource = source("app/src/main/java/com/example/vocalorie/data/VocalorieDatabase.java")
         val entitySource = source("app/src/main/java/com/example/vocalorie/data/MealEntity.kt")
 
-        assertTrue(databaseSource.contains("version = 8"))
+        assertTrue(databaseSource.contains("version = 9"))
         assertTrue(databaseSource.contains("Migration(1, 2)"))
         assertTrue(databaseSource.contains("Migration(2, 3)"))
         assertTrue(databaseSource.contains("Migration(3, 4)"))
@@ -57,6 +58,8 @@ class NutritionPromptContractTest {
         assertTrue(databaseSource.contains("MIGRATION_5_6"))
         assertTrue(databaseSource.contains("MIGRATION_6_7"))
         assertTrue(databaseSource.contains("MIGRATION_7_8"))
+        assertTrue(databaseSource.contains("MIGRATION_8_9"))
+        assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'"))
         assertTrue(databaseSource.contains("CREATE TABLE cached_meals"))
         assertTrue(databaseSource.contains("CREATE TABLE cached_items"))
         assertTrue(databaseSource.contains("ALTER TABLE activities ADD COLUMN stepsCount INTEGER"))
@@ -73,6 +76,7 @@ class NutritionPromptContractTest {
         assertTrue(entitySource.contains("val saturatedFatG: Double?"))
         assertTrue(entitySource.contains("val sugarG: Double?"))
         assertTrue(entitySource.contains("val saltG: Double?"))
+        assertTrue(entitySource.contains("val category: String"))
     }
 
     @Test

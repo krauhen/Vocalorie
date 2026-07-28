@@ -11,6 +11,7 @@ import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.isSuccess
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.net.InetAddress
@@ -57,6 +58,7 @@ class BraveSearchTool(
 
 class WebFetchTool(
     private val researchToolCallLimiter: ResearchToolCallLimiter,
+    private val onFetched: (String) -> Unit = {},
 ) : SimpleTool<WebFetchTool.Args>(
     argsType = typeToken<Args>(),
     name = "web_fetch",
@@ -77,7 +79,15 @@ class WebFetchTool(
         AgentToolHelpers.requireSafeFetchUrl(url)
         val client = AgentToolHelpers.httpClient()
         return try {
-            "Fetched content for $url:\n" + AgentToolHelpers.sanitizeFetchedText(client.get(url).bodyAsText())
+            val response = client.get(url)
+            if (!response.status.isSuccess()) {
+                // A non-2xx page (e.g. a 404) still returns body text; do NOT let such a URL
+                // count as a fetched source. Inform the model so it tries another page.
+                return "web_fetch could not retrieve $url (HTTP ${response.status.value}). Do not cite this URL as a source."
+            }
+            val text = "Fetched content for $url:\n" + AgentToolHelpers.sanitizeFetchedText(response.bodyAsText())
+            onFetched(url)
+            text
         } finally {
             client.close()
         }
@@ -171,8 +181,11 @@ private data class BraveWebResult(
     val description: String? = null,
 )
 
-fun vocalorieToolRegistry(settings: ToolSettings = ToolSettings()): ToolRegistry = ToolRegistry {
+fun vocalorieToolRegistry(
+    settings: ToolSettings = ToolSettings(),
+    onUrlFetched: (String) -> Unit = {},
+): ToolRegistry = ToolRegistry {
     val researchToolCallLimiter = ResearchToolCallLimiter(settings.maxResearchToolCalls)
     tool(BraveSearchTool(settings, researchToolCallLimiter))
-    tool(WebFetchTool(researchToolCallLimiter))
+    tool(WebFetchTool(researchToolCallLimiter, onUrlFetched))
 }

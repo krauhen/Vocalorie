@@ -24,4 +24,5 @@ data class MealEntity(
     val warningsText: String,
     val confidence: String,
     val needsHumanReview: Boolean,
+    val category: String = "OTHER",
 )

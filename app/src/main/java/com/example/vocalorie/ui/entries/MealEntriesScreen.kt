@@ -24,6 +24,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Cookie
+import androidx.compose.material.icons.outlined.Fastfood
+import androidx.compose.material.icons.outlined.LocalCafe
+import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.RestaurantMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,10 +71,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.displayName
@@ -81,6 +90,7 @@ import com.example.vocalorie.ui.components.formatNullable
 import com.example.vocalorie.ui.components.activityCalorieStateStyle
 import com.example.vocalorie.ui.components.mealCalorieStateStyle
 import com.example.vocalorie.ui.components.ReadOnlyActivitySummary
+import com.example.vocalorie.ui.macroColors
 import com.example.vocalorie.ui.entries.stats.DailyNutritionTotals
 import com.example.vocalorie.ui.entries.stats.MealStatsOverview
 import com.example.vocalorie.ui.entries.stats.MealStatsRange
@@ -384,8 +394,22 @@ private fun SelectableStatsHeader(
                 value = if (balanceCaloriesKcal >= 0.0) "+${balanceCaloriesKcal.formatNullable()} kcal surplus" else "${balanceCaloriesKcal.formatNullable()} kcal deficit",
                 valueColor = if (balanceCaloriesKcal >= 0.0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary,
             )
+            val headerMacros = macroColors()
             Text(
-                "Protein ${stats.stats.proteinG.formatNullable()}g · Carbs ${stats.stats.carbsG.formatNullable()}g · Fat ${stats.stats.fatG.formatNullable()}g · Amount ${stats.stats.amountGml.formatNullable()}g/ml",
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = headerMacros.protein, fontWeight = FontWeight.SemiBold)) {
+                        append("Protein ${stats.stats.proteinG.formatNullable()}g")
+                    }
+                    append(" · ")
+                    withStyle(SpanStyle(color = headerMacros.carbs, fontWeight = FontWeight.SemiBold)) {
+                        append("Carbs ${stats.stats.carbsG.formatNullable()}g")
+                    }
+                    append(" · ")
+                    withStyle(SpanStyle(color = headerMacros.fat, fontWeight = FontWeight.SemiBold)) {
+                        append("Fat ${stats.stats.fatG.formatNullable()}g")
+                    }
+                    append(" · Amount ${stats.stats.amountGml.formatNullable()}g/ml")
+                },
                 style = MaterialTheme.typography.bodySmall,
             )
             StatsHistogramSeparator()
@@ -760,13 +784,28 @@ private fun MealEntryRow(meal: SavedMeal, now: Instant, onClick: () -> Unit) {
             border = if (isFuture) null else BorderStroke(1.dp, style.borderColor),
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    meal.title.ifBlank { meal.query },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        meal.title.ifBlank { meal.query },
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Icon(
+                        imageVector = meal.category.categoryIcon(),
+                        contentDescription = meal.category.name,
+                        // Tint with the row's own contentColor (always legible on its container),
+                        // not primary — high-calorie rows use primary as their background.
+                        tint = style.contentColor,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
                 Text(
                     meal.query,
                     style = MaterialTheme.typography.bodySmall,
@@ -779,8 +818,22 @@ private fun MealEntryRow(meal: SavedMeal, now: Instant, onClick: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
+                val macros = macroColors()
                 Text(
-                    "Fat ${meal.totals.fatG.formatNullable()}g · Carbs ${meal.totals.carbsG.formatNullable()}g · Protein ${meal.totals.proteinG.formatNullable()}g · Amount ${meal.totals.amountGml.formatNullable()}g/ml",
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = macros.fat, fontWeight = FontWeight.SemiBold)) {
+                            append("Fat ${meal.totals.fatG.formatNullable()}g")
+                        }
+                        append(" · ")
+                        withStyle(SpanStyle(color = macros.carbs, fontWeight = FontWeight.SemiBold)) {
+                            append("Carbs ${meal.totals.carbsG.formatNullable()}g")
+                        }
+                        append(" · ")
+                        withStyle(SpanStyle(color = macros.protein, fontWeight = FontWeight.SemiBold)) {
+                            append("Protein ${meal.totals.proteinG.formatNullable()}g")
+                        }
+                        append(" · Amount ${meal.totals.amountGml.formatNullable()}g/ml")
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = style.contentColor,
                 )
@@ -854,3 +907,12 @@ private fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fol
 private fun Double?.formatEnergy(): String = this?.let { kcal ->
     "${(kcal * 4.184).roundToInt()} kJ / ${kcal.formatNullable()} kcal"
 } ?: "unknown"
+
+/** Total mapping of a meal's food-type category to its list-row icon; OTHER is the neutral default. */
+private fun MealCategory.categoryIcon() = when (this) {
+    MealCategory.MEAL -> Icons.Outlined.Restaurant
+    MealCategory.SNACK -> Icons.Outlined.Cookie
+    MealCategory.DRINK -> Icons.Outlined.LocalCafe
+    MealCategory.DESSERT -> Icons.Outlined.Cake
+    MealCategory.OTHER -> Icons.Outlined.Fastfood
+}

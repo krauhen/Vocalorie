@@ -20,6 +20,7 @@ data class EditableMealDraft(
     val confidence: ConfidenceLevel,
     val needsHumanReview: Boolean,
     val createdAtEpochMillis: Long? = null,
+    val category: MealCategory = MealCategory.OTHER,
 )
 
 data class EditableFoodItem(
@@ -48,6 +49,7 @@ data class SavedMeal(
     val warnings: List<String>,
     val confidence: ConfidenceLevel,
     val needsHumanReview: Boolean,
+    val category: MealCategory = MealCategory.OTHER,
 )
 
 fun EditableMealDraft.withTotalsSummedFromItems(): EditableMealDraft = copy(
