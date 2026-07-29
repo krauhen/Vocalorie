@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(
     entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 public abstract class VocalorieDatabase extends RoomDatabase {
@@ -156,6 +156,16 @@ public abstract class VocalorieDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_9_10 = new Migration(9, 10) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // Additive: mirror the meals food-type category onto the whole-meal cache so a cache
+            // hit stops downgrading the reused meal to OTHER. Rows cached before this column
+            // existed default to OTHER (the neutral/default icon).
+            database.execSQL("ALTER TABLE cached_meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'");
+        }
+    };
+
     private static volatile VocalorieDatabase instance;
 
     public static VocalorieDatabase get(Context context) {
@@ -170,7 +180,7 @@ public abstract class VocalorieDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         VocalorieDatabase.class,
                         "vocalorie.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build();
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build();
                 instance = current;
             }
             return current;

@@ -41,17 +41,17 @@
 
 ## 4. Data integrity
 
-- [ ] 4.1 Add `category` to `CachedMealEntity` and additive `MIGRATION_9_10` (`ALTER TABLE cached_meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'`), registered; schema v9 → v10
-- [ ] 4.2 Persist and restore `category` in `toCachedMealEntity()` and `CachedMealEntity.toSavedMeal()` (`data/MealMappers.kt:119-152`) so a cache hit stops silently downgrading every meal to `OTHER`
-- [ ] 4.3 Set `BACKUP_SCHEMA_VERSION = 10` and add a declared `SUPPORTED_BACKUP_SCHEMA_VERSIONS = 8..10` accepted by `parseBackupEnvelope`, in the same commit as 4.1
-- [ ] 4.4 Wrap `exportBackupJson`'s four table reads in a transaction (`data/VocalorieBackup.kt:70-79`)
-- [ ] 4.5 Stop returning a silent `emptyList()` for malformed `itemsJson` (`MealMappers.kt:68`) — surface it rather than producing a real-looking 0-kcal meal
-- [ ] 4.6 Replace the `RUNNING` fallback for an unknown activity type with a neutral value (`data/ActivityMappers.kt:46`)
-- [ ] 4.7 Extract a shared `KeystoreSecretCodec(alias)` from the byte-identical crypto in `settings/OpenAiApiKeyStore.kt:62-79` and `settings/ToolSettingsStore.kt:113-130`, including the duplicated encrypt/decrypt blocks and constants
-- [ ] 4.8 Stop clearing the stored key on decrypt failure in both stores; retain the ciphertext and report "saved key could not be read" as distinct from "no key configured"
-- [ ] 4.9 Merge the duplicated masking helpers (`settings/OpenAiApiKeyLabels.kt`, `settings/ToolSettings.kt:53-59`) into one implementation, keeping both existing label tests passing
-- [ ] 4.10 Persist `kcalPerStep` as `Double` rather than `Float` behind its `Double` API (`settings/ThemeSettingsStore.kt:105, 109, 172`). Observed on the S23: Settings reads **29.999999329447746** where `30` was entered — this is the defect, and the existing stored value must migrate or re-round so it reads `30` afterwards
-- [ ] 4.11 Verify: a cache hit shows the correct food-type icon; a real previously-exported backup file still imports; an unreadable key shows the re-enter message instead of vanishing; the step-burn setting reads back exactly as entered (`30` → `30`, not `29.999999329447746`); `MealCacheTest` (13), `MealMappersTest` (14), `VocalorieBackupTest` (6), `ActivityMappersTest` green
+- [x] 4.1 Add `category` to `CachedMealEntity` and additive `MIGRATION_9_10` (`ALTER TABLE cached_meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'`), registered; schema v9 → v10
+- [x] 4.2 Persist and restore `category` in `toCachedMealEntity()` and `CachedMealEntity.toSavedMeal()` (`data/MealMappers.kt:119-152`) so a cache hit stops silently downgrading every meal to `OTHER`
+- [x] 4.3 Set `BACKUP_SCHEMA_VERSION = 10` and add a declared `SUPPORTED_BACKUP_SCHEMA_VERSIONS = 8..10` accepted by `parseBackupEnvelope`, in the same commit as 4.1
+- [x] 4.4 Wrap `exportBackupJson`'s four table reads in a transaction (`data/VocalorieBackup.kt:70-79`)
+- [x] 4.5 Stop returning a silent `emptyList()` for malformed `itemsJson` (`MealMappers.kt:68`) — surface it rather than producing a real-looking 0-kcal meal
+- [x] 4.6 Replace the `RUNNING` fallback for an unknown activity type with a neutral value (`data/ActivityMappers.kt:46`)
+- [x] 4.7 Extract a shared `KeystoreSecretCodec(alias)` from the byte-identical crypto in `settings/OpenAiApiKeyStore.kt:62-79` and `settings/ToolSettingsStore.kt:113-130`, including the duplicated encrypt/decrypt blocks and constants
+- [x] 4.8 Stop clearing the stored key on decrypt failure in both stores; retain the ciphertext and report "saved key could not be read" as distinct from "no key configured"
+- [x] 4.9 Merge the duplicated masking helpers (`settings/OpenAiApiKeyLabels.kt`, `settings/ToolSettings.kt:53-59`) into one implementation, keeping both existing label tests passing
+- [x] 4.10 Persist `kcalPerStep` as `Double` rather than `Float` behind its `Double` API (`settings/ThemeSettingsStore.kt:105, 109, 172`). Observed on the S23: Settings reads **29.999999329447746** where `30` was entered — this is the defect, and the existing stored value must migrate or re-round so it reads `30` afterwards
+- [x] 4.11 Verify: a cache hit shows the correct food-type icon; a real previously-exported backup file still imports; an unreadable key shows the re-enter message instead of vanishing; the step-burn setting reads back exactly as entered (`30` → `30`, not `29.999999329447746`); `MealCacheTest` (13), `MealMappersTest` (14), `VocalorieBackupTest` (6), `ActivityMappersTest` green
 
 ## 5. Build foundation and reactive data layer
 

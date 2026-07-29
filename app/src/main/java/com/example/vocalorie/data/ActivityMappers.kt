@@ -43,6 +43,7 @@ private fun String.toNullableDouble(): Double? = trim().replace(',', '.').takeIf
 
 private fun String.toNullableInt(): Int? = trim().takeIf { it.isNotEmpty() }?.toIntOrNull()
 
-private fun String.toActivityType(): ActivityType = runCatching { ActivityType.valueOf(this) }.getOrDefault(ActivityType.RUNNING)
+/** An unrecognized persisted type name is neutral, not a run. */
+private fun String.toActivityType(): ActivityType = runCatching { ActivityType.valueOf(this) }.getOrDefault(ActivityType.OTHER)
 
 private fun Double.toEditText(): String = if (this % 1.0 == 0.0) toInt().toString() else toString()

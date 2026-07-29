@@ -1,10 +1,10 @@
 package com.example.vocalorie.settings
 
+/** OpenAI-key wording over the shared masking in [SecretKeyLabels]. */
 object OpenAiApiKeyLabels {
-    fun last4(apiKey: String): String = apiKey.trim().takeLast(4)
+    fun last4(apiKey: String): String = SecretKeyLabels.last4(apiKey)
 
-    fun maskedLabel(last4: String?): String? {
-        val suffix = last4?.trim().orEmpty()
-        return if (suffix.isBlank()) null else "Saved key ending in $suffix"
-    }
+    fun maskedLabel(last4: String?): String? = SecretKeyLabels.savedKeyLabel(last4)
+
+    fun unreadableLabel(): String = SecretKeyLabels.unreadableKeyLabel()
 }

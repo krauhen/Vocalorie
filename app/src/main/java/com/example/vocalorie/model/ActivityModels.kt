@@ -18,7 +18,19 @@ enum class ActivityType {
     HIKING,
     SWIMMING,
     STEPS,
+
+    /**
+     * Neutral fallback for a persisted type name this build does not recognize. Never offered as a
+     * choice (see [SELECTABLE_ACTIVITY_TYPES]) — an unreadable row must not masquerade as a run.
+     */
+    OTHER,
 }
+
+/**
+ * The activity types a user can pick. Excludes [ActivityType.OTHER], which exists only to represent
+ * unreadable persisted data and must stay invisible in the picker.
+ */
+val SELECTABLE_ACTIVITY_TYPES: List<ActivityType> = ActivityType.entries.filterNot { it == ActivityType.OTHER }
 
 fun ActivityType.displayName(): String = when (this) {
     ActivityType.RUNNING -> "Running"
@@ -29,6 +41,7 @@ fun ActivityType.displayName(): String = when (this) {
     ActivityType.HIKING -> "Hiking"
     ActivityType.SWIMMING -> "Swimming"
     ActivityType.STEPS -> "Steps"
+    ActivityType.OTHER -> "Other"
 }
 
 fun ActivityType.activityTypeIcon(): ImageVector = when (this) {
@@ -40,6 +53,7 @@ fun ActivityType.activityTypeIcon(): ImageVector = when (this) {
     ActivityType.HIKING -> hikingIcon()
     ActivityType.SWIMMING -> swimmingIcon()
     ActivityType.STEPS -> stepsIcon()
+    ActivityType.OTHER -> otherIcon()
 }
 
 data class EditableActivityDraft(
@@ -150,6 +164,18 @@ private fun stepsIcon(): ImageVector = activityIcon("ActivitySteps") {
         curveTo(15.3f, 21f, 14f, 19.7f, 14f, 18f)
         lineTo(14f, 14f)
         curveTo(14f, 13.4f, 14.4f, 13f, 15f, 13f)
+        close()
+    }
+}
+
+/** Deliberately characterless: a plain dot, so an unrecognized type claims no specific activity. */
+private fun otherIcon(): ImageVector = activityIcon("ActivityOther") {
+    path(fill = iconFill, stroke = null) {
+        moveTo(16f, 12f)
+        curveTo(16f, 14.209f, 14.209f, 16f, 12f, 16f)
+        curveTo(9.791f, 16f, 8f, 14.209f, 8f, 12f)
+        curveTo(8f, 9.791f, 9.791f, 8f, 12f, 8f)
+        curveTo(14.209f, 8f, 16f, 9.791f, 16f, 12f)
         close()
     }
 }

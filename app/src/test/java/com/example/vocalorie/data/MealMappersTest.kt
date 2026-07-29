@@ -2,11 +2,14 @@ package com.example.vocalorie.data
 
 import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.FoodItemEstimate
+import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MealMappersTest {
@@ -203,6 +206,71 @@ class MealMappersTest {
         val saved = entity.toSavedMeal()
 
         assertNull(saved.items.single().amountGml)
+    }
+
+    @Test
+    fun malformedItemJsonKeepsTheStoredTotalsInsteadOfBecomingAZeroKcalMeal() {
+        val entity = sampleResult().toEditableDraft().toEntity(createdAtEpochMillis = 123L)
+            .copy(itemsJson = "{ this is not a food item list }")
+
+        val saved = entity.toSavedMeal()
+
+        // Totals come from the meal row's own columns, not from an empty item list.
+        assertEquals(150.0, saved.totals.caloriesKcal!!, 0.0)
+        assertEquals(100.0, saved.totals.amountGml!!, 0.0)
+        assertEquals(12.5, saved.totals.proteinG!!, 0.0)
+        assertEquals(1.0, saved.totals.carbsG!!, 0.0)
+        assertEquals(10.0, saved.totals.fatG!!, 0.0)
+        assertEquals(3.2, saved.totals.saturatedFatG!!, 0.0)
+        assertEquals(0.4, saved.totals.sugarG!!, 0.0)
+        assertEquals(0.3, saved.totals.saltG!!, 0.0)
+        assertTrue(saved.items.isEmpty())
+    }
+
+    @Test
+    fun malformedItemJsonIsRecordedAsAWarning() {
+        val entity = sampleResult().toEditableDraft().toEntity(createdAtEpochMillis = 123L)
+            .copy(itemsJson = "not json at all")
+
+        val saved = entity.toSavedMeal()
+
+        assertTrue(UNREADABLE_MEAL_ITEMS_WARNING in saved.warnings)
+        // The meal's own warnings are kept alongside it.
+        assertTrue("review before saving" in saved.warnings)
+    }
+
+    @Test
+    fun readableItemJsonAddsNoUnreadableWarningAndStillSumsFromItems() {
+        val saved = sampleResult().toEditableDraft().toEntity(createdAtEpochMillis = 123L).toSavedMeal()
+
+        assertFalse(UNREADABLE_MEAL_ITEMS_WARNING in saved.warnings)
+        assertEquals(150.0, saved.totals.caloriesKcal!!, 0.0)
+    }
+
+    @Test
+    fun emptyItemListIsNotTreatedAsUnreadable() {
+        val entity = sampleResult().toEditableDraft().toEntity(createdAtEpochMillis = 123L).copy(itemsJson = "[]")
+
+        val saved = entity.toSavedMeal()
+
+        assertFalse(UNREADABLE_MEAL_ITEMS_WARNING in saved.warnings)
+        assertEquals(0.0, saved.totals.caloriesKcal!!, 0.0)
+    }
+
+    @Test
+    fun mealCategoryRoundTripsThroughTheEntity() {
+        val draft = sampleResult().toEditableDraft().copy(category = MealCategory.DESSERT)
+
+        val saved = draft.toEntity(createdAtEpochMillis = 123L).toSavedMeal()
+
+        assertEquals(MealCategory.DESSERT, saved.category)
+    }
+
+    @Test
+    fun unknownStoredCategoryNameFallsBackToOther() {
+        val entity = sampleResult().toEditableDraft().toEntity(createdAtEpochMillis = 123L).copy(category = "BRUNCH")
+
+        assertEquals(MealCategory.OTHER, entity.toSavedMeal().category)
     }
 
     @Test

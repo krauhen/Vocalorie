@@ -2,8 +2,12 @@ package com.example.vocalorie.data
 
 import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
+import com.example.vocalorie.model.SELECTABLE_ACTIVITY_TYPES
+import com.example.vocalorie.model.displayName
 import com.example.vocalorie.model.stepsBurnKcal
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class ActivityMappersTest {
@@ -70,5 +74,53 @@ class ActivityMappersTest {
         assertEquals(0.0, stepsBurnKcal(0, 0.035), 0.0)
         // Negative step counts are clamped to zero.
         assertEquals(0.0, stepsBurnKcal(-100, 0.035), 0.0)
+    }
+
+    @Test
+    fun unknownPersistedTypeBecomesOtherRatherThanRunning() {
+        val entity = ActivityEntity(
+            id = 5L,
+            createdAtEpochMillis = 123L,
+            type = "PARAGLIDING",
+            title = "Flight",
+            description = "",
+            caloriesBurnedKcal = 200.0,
+            durationMinutes = 60,
+        )
+
+        val saved = entity.toSavedActivity()
+
+        assertEquals(ActivityType.OTHER, saved.type)
+        assertNotEquals(ActivityType.RUNNING, saved.type)
+    }
+
+    @Test
+    fun blankPersistedTypeBecomesOther() {
+        val entity = ActivityEntity(
+            id = 6L,
+            createdAtEpochMillis = 123L,
+            type = "",
+            title = "",
+            description = "",
+            caloriesBurnedKcal = 0.0,
+            durationMinutes = 0,
+        )
+
+        assertEquals(ActivityType.OTHER, entity.toSavedActivity().type)
+    }
+
+    @Test
+    fun otherIsNeverOfferedAsASelectableActivityType() {
+        // The picker renders SELECTABLE_ACTIVITY_TYPES, so OTHER must not add a visible chip.
+        assertFalse(ActivityType.OTHER in SELECTABLE_ACTIVITY_TYPES)
+        assertEquals(ActivityType.entries.size - 1, SELECTABLE_ACTIVITY_TYPES.size)
+        assertEquals(ActivityType.entries.filterNot { it == ActivityType.OTHER }, SELECTABLE_ACTIVITY_TYPES)
+    }
+
+    @Test
+    fun otherHasANeutralDisplayName() {
+        // Its icon is covered by the exhaustive `when` in activityTypeIcon(), which is a compile-time
+        // guarantee; rendering an ImageVector is left to on-device verification.
+        assertEquals("Other", ActivityType.OTHER.displayName())
     }
 }

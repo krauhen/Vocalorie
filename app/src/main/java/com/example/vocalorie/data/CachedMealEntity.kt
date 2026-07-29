@@ -20,4 +20,9 @@ data class CachedMealEntity(
     val warningsText: String,
     val confidence: String,
     val needsHumanReview: Boolean,
+    /**
+     * Food-type category name, mirroring [MealEntity.category]. Defaults to `OTHER` so cache rows
+     * written before this column existed (and backup files exported before it) resolve neutrally.
+     */
+    val category: String = "OTHER",
 )

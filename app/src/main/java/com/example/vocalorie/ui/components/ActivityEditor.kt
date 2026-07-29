@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
+import com.example.vocalorie.model.SELECTABLE_ACTIVITY_TYPES
 import com.example.vocalorie.model.displayName
 import com.example.vocalorie.model.activityTypeIcon
 import com.example.vocalorie.model.stepsBurnKcal
@@ -214,7 +215,8 @@ private fun ActivityTypePicker(
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            ActivityType.entries.forEach { activityType ->
+            // ActivityType.OTHER is excluded: it exists only to represent unreadable persisted data.
+            SELECTABLE_ACTIVITY_TYPES.forEach { activityType ->
                 DropdownMenuItem(
                     text = { Text(activityType.displayName()) },
                     leadingIcon = { Icon(activityType.activityTypeIcon(), contentDescription = null) },

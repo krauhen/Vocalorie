@@ -3,6 +3,7 @@ package com.example.vocalorie.data
 import com.example.vocalorie.model.ConfidenceLevel
 import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
+import com.example.vocalorie.model.MealCategory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -156,6 +157,61 @@ class MealCacheTest {
         assertEquals("80", resolved.items.single().caloriesKcal)
     }
 
+    // --- Food-type category survives the cache (regression: every cache hit downgraded to OTHER) ---
+
+    @Test
+    fun cachedMealPreservesItsFoodTypeCategory() {
+        val entry = mealDraft(query = "Buttermilch 200g", category = MealCategory.DRINK).toCachedMealEntity()!!
+
+        assertEquals("DRINK", entry.category)
+        assertEquals(MealCategory.DRINK, entry.toSavedMeal().category)
+    }
+
+    @Test
+    fun cacheHitReusesTheOriginalCategoryInsteadOfDowngradingToOther() {
+        val cache = listOf(mealDraft(query = "Buttermilch 200g", category = MealCategory.DRINK).toCachedMealEntity()!!)
+
+        val match = findCachedMealMatch(cache, "Buttermilch 200g")
+
+        assertNotNull(match)
+        assertEquals(MealCategory.DRINK, match!!.meal.category)
+        assertEquals(MealCategory.DRINK, match.draft.category)
+    }
+
+    @Test
+    fun everyCategoryRoundTripsThroughTheCacheUnchanged() {
+        MealCategory.entries.forEach { category ->
+            val entry = mealDraft(query = "Buttermilch 200g", category = category).toCachedMealEntity()!!
+
+            assertEquals(category, entry.toSavedMeal().category)
+        }
+    }
+
+    @Test
+    fun preExistingCacheEntryWithoutCategoryFallsBackToOther() {
+        // A row written before the category column existed takes the additive default.
+        val legacyEntry = CachedMealEntity(
+            normalizedKey = "buttermilch",
+            title = "Buttermilch",
+            query = "Buttermilch",
+            itemsJson = "[]",
+            assumptionsText = "",
+            warningsText = "",
+            confidence = "LOW",
+            needsHumanReview = false,
+        )
+
+        assertEquals("OTHER", legacyEntry.category)
+        assertEquals(MealCategory.OTHER, legacyEntry.toSavedMeal().category)
+    }
+
+    @Test
+    fun unknownCachedCategoryNameFallsBackToOther() {
+        val entry = mealDraft(query = "Buttermilch 200g").toCachedMealEntity()!!.copy(category = "BRUNCH")
+
+        assertEquals(MealCategory.OTHER, entry.toSavedMeal().category)
+    }
+
     private fun mealDraft(
         query: String,
         itemName: String = query,
@@ -163,6 +219,7 @@ class MealCacheTest {
         caloriesKcal: Double = 10.0,
         itemAmountGml: Double? = amountGml,
         itemCaloriesKcal: Double = caloriesKcal,
+        category: MealCategory = MealCategory.OTHER,
     ): EditableMealDraft = EditableMealDraft(
         title = "",
         query = query,
@@ -194,6 +251,7 @@ class MealCacheTest {
         warningsText = "",
         confidence = ConfidenceLevel.MEDIUM,
         needsHumanReview = false,
+        category = category,
     )
 
     private fun Double.toEdit(): String = if (this % 1.0 == 0.0) toInt().toString() else toString()

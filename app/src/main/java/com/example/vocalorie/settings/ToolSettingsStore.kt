@@ -2,19 +2,11 @@ package com.example.vocalorie.settings
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
-import android.util.Base64
 import com.example.vocalorie.BuildConfig
-import java.nio.charset.StandardCharsets
-import java.security.KeyStore
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 class ToolSettingsStore(context: Context) {
     private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val codec = KeystoreSecretCodec(KEY_ALIAS)
 
     fun get(): ToolSettings = ToolSettings(
         braveApiKey = getBraveApiKey() ?: defaultBraveApiKey(),
@@ -39,8 +31,17 @@ class ToolSettingsStore(context: Context) {
         prefs.edit().remove(KEY_SYSTEM_PROMPT_OVERRIDE).apply()
     }
 
-    fun savedBraveKeyLabel(): String? = ToolSettingsLabels.braveKeyLabel(
-        prefs.getString(KEY_BRAVE_LAST4, null) ?: defaultBraveApiKey()?.let(ToolSettingsLabels::last4),
+    fun savedBraveKeyLabel(): String? = when (braveKeyState()) {
+        SecretKeyState.UNREADABLE -> ToolSettingsLabels.unreadableBraveKeyLabel()
+        else -> ToolSettingsLabels.braveKeyLabel(
+            prefs.getString(KEY_BRAVE_LAST4, null) ?: defaultBraveApiKey()?.let(ToolSettingsLabels::last4),
+        )
+    }
+
+    fun braveKeyState(): SecretKeyState = SecretKeyLabels.stateOf(
+        hasStoredSecret = prefs.contains(KEY_BRAVE_CIPHERTEXT),
+        readFailed = prefs.getBoolean(KEY_BRAVE_READ_FAILED, false),
+        hasFallbackSecret = defaultBraveApiKey() != null,
     )
 
     @Synchronized
@@ -48,20 +49,24 @@ class ToolSettingsStore(context: Context) {
         val trimmed = apiKey.trim()
         require(trimmed.isNotEmpty()) { "Brave API key cannot be blank." }
 
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateSecretKey())
-        val encrypted = cipher.doFinal(trimmed.toByteArray(StandardCharsets.UTF_8))
+        val encrypted = codec.encrypt(trimmed)
 
         prefs.edit()
-            .putString(KEY_BRAVE_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .putString(KEY_BRAVE_CIPHERTEXT, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .putString(KEY_BRAVE_IV, encrypted.ivBase64)
+            .putString(KEY_BRAVE_CIPHERTEXT, encrypted.ciphertextBase64)
             .putString(KEY_BRAVE_LAST4, ToolSettingsLabels.last4(trimmed))
+            .remove(KEY_BRAVE_READ_FAILED)
             .apply()
     }
 
     @Synchronized
     fun clearBraveApiKey() {
-        prefs.edit().remove(KEY_BRAVE_IV).remove(KEY_BRAVE_CIPHERTEXT).remove(KEY_BRAVE_LAST4).apply()
+        prefs.edit()
+            .remove(KEY_BRAVE_IV)
+            .remove(KEY_BRAVE_CIPHERTEXT)
+            .remove(KEY_BRAVE_LAST4)
+            .remove(KEY_BRAVE_READ_FAILED)
+            .apply()
     }
 
     @Synchronized
@@ -96,36 +101,20 @@ class ToolSettingsStore(context: Context) {
         val iv = prefs.getString(KEY_BRAVE_IV, null) ?: return null
         val ciphertext = prefs.getString(KEY_BRAVE_CIPHERTEXT, null) ?: return null
 
-        return runCatching {
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                getOrCreateSecretKey(),
-                GCMParameterSpec(GCM_TAG_BITS, Base64.decode(iv, Base64.NO_WRAP)),
-            )
-            String(cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP)), StandardCharsets.UTF_8)
-        }.getOrElse {
-            clearBraveApiKey()
-            null
-        }
+        // A failed read must never destroy the secret: keep the ciphertext and remember that it
+        // could not be read, so the label says "re-enter" instead of "no key configured".
+        val decrypted = codec.decrypt(iv, ciphertext)
+        rememberBraveReadFailed(decrypted == null)
+        return decrypted
     }
 
-    private fun getOrCreateSecretKey(): SecretKey {
-        val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+    private fun rememberBraveReadFailed(failed: Boolean) {
+        if (prefs.getBoolean(KEY_BRAVE_READ_FAILED, false) == failed) return
 
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE).run {
-            init(
-                KeyGenParameterSpec.Builder(
-                    KEY_ALIAS,
-                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-                )
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setRandomizedEncryptionRequired(true)
-                    .build(),
-            )
-            generateKey()
+        if (failed) {
+            prefs.edit().putBoolean(KEY_BRAVE_READ_FAILED, true).apply()
+        } else {
+            prefs.edit().remove(KEY_BRAVE_READ_FAILED).apply()
         }
     }
 
@@ -145,13 +134,11 @@ class ToolSettingsStore(context: Context) {
 
     companion object {
         const val PREFS_NAME = "tool_settings_store"
-        private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "vocalorie_tool_settings"
-        private const val TRANSFORMATION = "AES/GCM/NoPadding"
-        private const val GCM_TAG_BITS = 128
         private const val KEY_BRAVE_IV = "brave_iv"
         private const val KEY_BRAVE_CIPHERTEXT = "brave_ciphertext"
         private const val KEY_BRAVE_LAST4 = "brave_last4"
+        private const val KEY_BRAVE_READ_FAILED = "brave_read_failed"
         private const val KEY_MAX_RESEARCH_TOOL_CALLS = "max_research_tool_calls"
         private const val KEY_MAX_AGENT_ITERATIONS = "max_agent_iterations"
         private const val KEY_OPENAI_MODEL_CHOICE = "openai_model_choice"

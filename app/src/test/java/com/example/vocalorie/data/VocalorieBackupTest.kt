@@ -1,7 +1,9 @@
 package com.example.vocalorie.data
 
+import com.example.vocalorie.testsupport.productionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VocalorieBackupTest {
@@ -57,6 +59,101 @@ class VocalorieBackupTest {
     @Test
     fun parseRejectsGarbageJson() {
         assertThrows(BackupFormatException::class.java) { parseBackupEnvelope("not json at all") }
+    }
+
+    // --- Accepted-version set (a schema bump must not orphan existing exports) ---
+
+    @Test
+    fun everyAdditivelyReachableSchemaVersionStillImports() {
+        SUPPORTED_BACKUP_SCHEMA_VERSIONS.forEach { version ->
+            val json = encodeBackupEnvelope(BackupEnvelope(schemaVersion = version, meals = listOf(sampleMeal(id = 1L))))
+
+            val decoded = parseBackupEnvelope(json)
+
+            assertEquals(version, decoded.schemaVersion)
+            assertEquals(1L, decoded.meals.single().id)
+        }
+    }
+
+    @Test
+    fun exportsFromBeforeTheCategoryBumpStillImport() {
+        // v8 predates both `meals.category` and `cached_meals.category`; the omitted fields take
+        // their additive defaults instead of the file being refused.
+        val legacyJson = """
+            {
+              "format": "vocalorie-backup",
+              "schemaVersion": 8,
+              "exportedAtEpochMillis": 1700000000000,
+              "meals": [{
+                "id": 1, "createdAtEpochMillis": 1700000000001, "title": "Old meal", "query": "old",
+                "itemsJson": "[]", "caloriesKcal": 100.0, "amountGml": null, "proteinG": null,
+                "carbsG": null, "fatG": null, "saturatedFatG": null, "sugarG": null, "saltG": null,
+                "assumptionsText": "", "warningsText": "", "confidence": "LOW", "needsHumanReview": false
+              }],
+              "cachedMeals": [{
+                "normalizedKey": "old", "title": "Old meal", "query": "old", "itemsJson": "[]",
+                "assumptionsText": "", "warningsText": "", "confidence": "LOW", "needsHumanReview": false
+              }]
+            }
+        """.trimIndent()
+
+        val decoded = parseBackupEnvelope(legacyJson)
+
+        assertEquals(8, decoded.schemaVersion)
+        assertEquals("OTHER", decoded.meals.single().category)
+        assertEquals("OTHER", decoded.cachedMeals.single().category)
+    }
+
+    @Test
+    fun parseRejectsSchemaVersionBelowTheSupportedRange() {
+        val json = encodeBackupEnvelope(BackupEnvelope(schemaVersion = SUPPORTED_BACKUP_SCHEMA_VERSIONS.first - 1))
+        assertThrows(BackupFormatException::class.java) { parseBackupEnvelope(json) }
+    }
+
+    @Test
+    fun rejectionMessageNamesTheSupportedRange() {
+        val json = encodeBackupEnvelope(BackupEnvelope(schemaVersion = SUPPORTED_BACKUP_SCHEMA_VERSIONS.last + 1))
+
+        val message = assertThrows(BackupFormatException::class.java) { parseBackupEnvelope(json) }.message.orEmpty()
+
+        assertTrue(message, message.contains("v${SUPPORTED_BACKUP_SCHEMA_VERSIONS.first}"))
+        assertTrue(message, message.contains("v${SUPPORTED_BACKUP_SCHEMA_VERSIONS.last}"))
+    }
+
+    @Test
+    fun exportedSchemaVersionEqualsTheRoomDatabaseVersion() {
+        val declaredVersion = requireNotNull(
+            Regex("""version\s*=\s*(\d+)""")
+                .find(productionSource("VocalorieDatabase.java"))
+                ?.groupValues
+                ?.get(1)
+                ?.toInt(),
+        ) { "Could not read the @Database version from VocalorieDatabase.java" }
+
+        assertEquals(declaredVersion, BACKUP_SCHEMA_VERSION)
+        assertEquals(BACKUP_SCHEMA_VERSION, SUPPORTED_BACKUP_SCHEMA_VERSIONS.last)
+        assertEquals(BACKUP_SCHEMA_VERSION, BackupEnvelope().schemaVersion)
+    }
+
+    /**
+     * Source-text contract: `VocalorieDatabase` is an abstract Room class that cannot be built on the
+     * JVM, so a torn snapshot is only reachable on-device. This pins that all four reads sit after the
+     * transaction opens, which is the property that makes tearing impossible.
+     */
+    @Test
+    fun exportReadsEveryTableInsideOneTransaction() {
+        val source = productionSource("VocalorieBackup.kt")
+        val exportBody = source.substringAfter("fun exportBackupJson").substringBefore("\nfun ")
+        val transactionCall = listOf("runInTransaction", "withTransaction").firstOrNull { exportBody.contains(it) }
+
+        assertTrue("exportBackupJson must open a transaction:\n$exportBody", transactionCall != null)
+        listOf("mealDao().getAll()", "activityDao().getAll()", "cacheDao().getAllMeals()", "cacheDao().getAllItems()")
+            .forEach { read ->
+                assertTrue(
+                    "$read must be read inside the transaction block",
+                    exportBody.substringAfter(transactionCall!!).contains(read),
+                )
+            }
     }
 
     private fun sampleMeal(id: Long) = MealEntity(

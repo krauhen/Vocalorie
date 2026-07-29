@@ -1,10 +1,8 @@
 package com.example.vocalorie.settings
 
-import android.app.Application
-import android.content.Context
-import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ToolSettingsStoreTest {
@@ -63,78 +61,42 @@ class ToolSettingsStoreTest {
         assertThrows(IllegalArgumentException::class.java) { store.saveSystemPromptOverride("   ") }
     }
 
-    private fun testContext(prefs: SharedPreferences): Context = object : Application() {
-        override fun getApplicationContext(): Context = this
+    @Test
+    fun unreadableBraveKeyKeepsCiphertextAndReportsReEnter() {
+        val prefs = InMemorySharedPreferences()
+        // There is no AndroidKeyStore on the JVM, so reading this stored secret always fails,
+        // which is exactly the post-restore condition that used to wipe the key.
+        prefs.edit()
+            .putString("brave_iv", "aXYtYnl0ZXM=")
+            .putString("brave_ciphertext", "Y2lwaGVydGV4dA==")
+            .putString("brave_last4", "efgh")
+            .apply()
+        val store = ToolSettingsStore(testContext(prefs))
 
-        override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences = prefs
-    }
-}
+        store.get()
 
-private class InMemorySharedPreferences : SharedPreferences {
-    private val values = linkedMapOf<String, Any?>()
-
-    override fun getAll(): MutableMap<String, *> = values.toMutableMap()
-
-    override fun getString(key: String?, defValue: String?): String? = values[key] as? String ?: defValue
-
-    override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? =
-        @Suppress("UNCHECKED_CAST")
-        (values[key] as? MutableSet<String>) ?: defValues
-
-    override fun getInt(key: String?, defValue: Int): Int = (values[key] as? Int) ?: defValue
-
-    override fun getLong(key: String?, defValue: Long): Long = (values[key] as? Long) ?: defValue
-
-    override fun getFloat(key: String?, defValue: Float): Float = (values[key] as? Float) ?: defValue
-
-    override fun getBoolean(key: String?, defValue: Boolean): Boolean = (values[key] as? Boolean) ?: defValue
-
-    override fun contains(key: String?): Boolean = values.containsKey(key)
-
-    override fun edit(): SharedPreferences.Editor = Editor()
-
-    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
-
-    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
-
-    private inner class Editor : SharedPreferences.Editor {
-        private val pending = linkedMapOf<String, Any?>()
-        private var clearRequested = false
-
-        override fun putString(key: String?, value: String?): SharedPreferences.Editor = apply { pending[requireKey(key)] = value }
-
-        override fun putStringSet(key: String?, values: MutableSet<String>?): SharedPreferences.Editor = apply { pending[requireKey(key)] = values }
-
-        override fun putInt(key: String?, value: Int): SharedPreferences.Editor = apply { pending[requireKey(key)] = value }
-
-        override fun putLong(key: String?, value: Long): SharedPreferences.Editor = apply { pending[requireKey(key)] = value }
-
-        override fun putFloat(key: String?, value: Float): SharedPreferences.Editor = apply { pending[requireKey(key)] = value }
-
-        override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor = apply { pending[requireKey(key)] = value }
-
-        override fun remove(key: String?): SharedPreferences.Editor = apply { pending[requireKey(key)] = REMOVED }
-
-        override fun clear(): SharedPreferences.Editor = apply { clearRequested = true }
-
-        override fun commit(): Boolean {
-            if (clearRequested) values.clear()
-            pending.forEach { (key, value) ->
-                if (value === REMOVED) values.remove(key) else values[key] = value
-            }
-            pending.clear()
-            clearRequested = false
-            return true
-        }
-
-        override fun apply() {
-            commit()
-        }
-
-        private fun requireKey(key: String?): String = requireNotNull(key) { "Preference key cannot be null." }
+        assertTrue(prefs.contains("brave_ciphertext"))
+        assertTrue(prefs.contains("brave_iv"))
+        assertEquals(SecretKeyState.UNREADABLE, store.braveKeyState())
+        assertEquals("Saved Brave key could not be read. Re-enter it.", store.savedBraveKeyLabel())
     }
 
-    private companion object {
-        private val REMOVED = Any()
+    @Test
+    fun clearingTheBraveKeyRemovesEveryStoredField() {
+        val prefs = InMemorySharedPreferences()
+        prefs.edit()
+            .putString("brave_iv", "aXYtYnl0ZXM=")
+            .putString("brave_ciphertext", "Y2lwaGVydGV4dA==")
+            .putString("brave_last4", "efgh")
+            .putBoolean("brave_read_failed", true)
+            .apply()
+        val store = ToolSettingsStore(testContext(prefs))
+
+        store.clearBraveApiKey()
+
+        assertEquals(false, prefs.contains("brave_iv"))
+        assertEquals(false, prefs.contains("brave_ciphertext"))
+        assertEquals(false, prefs.contains("brave_last4"))
+        assertEquals(false, prefs.contains("brave_read_failed"))
     }
 }

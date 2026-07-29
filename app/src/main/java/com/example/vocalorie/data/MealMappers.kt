@@ -18,6 +18,13 @@ import java.math.RoundingMode
 private val mealJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 private val foodItemListSerializer = ListSerializer(FoodItemEstimate.serializer())
 
+/**
+ * Recorded in a meal's warnings when its persisted `itemsJson` cannot be decoded, so an unreadable
+ * breakdown is visible as such instead of silently presenting as a real 0-kcal meal.
+ */
+const val UNREADABLE_MEAL_ITEMS_WARNING: String =
+    "Saved item details could not be read; showing the stored totals only."
+
 fun NutritionAgentResult.toEditableDraft(): EditableMealDraft = EditableMealDraft(
     title = title,
     query = query,
@@ -65,19 +72,21 @@ fun EditableMealDraft.toEntity(id: Long, createdAtEpochMillis: Long): MealEntity
     toEntity(createdAtEpochMillis = createdAtEpochMillis).copy(id = id)
 
 fun MealEntity.toSavedMeal(): SavedMeal {
-    val decodedItems = runCatching { mealJson.decodeFromString(foodItemListSerializer, itemsJson) }.getOrDefault(emptyList())
+    // A decode failure must not turn into a real-looking 0-kcal meal: fall back to the totals stored
+    // on the row and record that the per-item breakdown is unreadable.
+    val decodedItems = runCatching { mealJson.decodeFromString(foodItemListSerializer, itemsJson) }.getOrNull()
     return SavedMeal(
         id = id,
         createdAtEpochMillis = createdAtEpochMillis,
         title = title,
         query = query,
-        items = decodedItems,
-        totals = decodedItems.toSummedNutritionTotals(),
+        items = decodedItems.orEmpty(),
+        totals = decodedItems?.toSummedNutritionTotals() ?: toStoredNutritionTotals(),
         assumptions = assumptionsText.toLinesList(),
-        warnings = warningsText.toLinesList(),
+        warnings = warningsText.toLinesList().plusUnreadableItemsWarningIf(decodedItems == null),
         confidence = runCatching { ConfidenceLevel.valueOf(confidence) }.getOrDefault(ConfidenceLevel.LOW),
         needsHumanReview = needsHumanReview,
-        category = runCatching { MealCategory.valueOf(category) }.getOrDefault(MealCategory.OTHER),
+        category = category.toMealCategoryOrOther(),
     )
 }
 
@@ -117,18 +126,19 @@ fun findCachedMealMatch(cachedMeals: List<CachedMealEntity>, requestQuery: Strin
 
 /** Decode a cached meal entry back into a [SavedMeal] for reuse (synthetic id/timestamp). */
 fun CachedMealEntity.toSavedMeal(): SavedMeal {
-    val decodedItems = runCatching { mealJson.decodeFromString(foodItemListSerializer, itemsJson) }.getOrDefault(emptyList())
+    val decodedItems = runCatching { mealJson.decodeFromString(foodItemListSerializer, itemsJson) }.getOrNull()
     return SavedMeal(
         id = 0L,
         createdAtEpochMillis = 0L,
         title = title,
         query = query,
-        items = decodedItems,
-        totals = decodedItems.toSummedNutritionTotals(),
+        items = decodedItems.orEmpty(),
+        totals = decodedItems.orEmpty().toSummedNutritionTotals(),
         assumptions = assumptionsText.toLinesList(),
-        warnings = warningsText.toLinesList(),
+        warnings = warningsText.toLinesList().plusUnreadableItemsWarningIf(decodedItems == null),
         confidence = runCatching { ConfidenceLevel.valueOf(confidence) }.getOrDefault(ConfidenceLevel.LOW),
         needsHumanReview = needsHumanReview,
+        category = category.toMealCategoryOrOther(),
     )
 }
 
@@ -148,6 +158,7 @@ fun EditableMealDraft.toCachedMealEntity(): CachedMealEntity? {
         warningsText = warningsText.trim(),
         confidence = confidence.name,
         needsHumanReview = needsHumanReview,
+        category = category.name,
     )
 }
 
@@ -250,6 +261,28 @@ private fun EditableFoodItem.toFoodItemEstimate(): FoodItemEstimate = FoodItemEs
     saltG = saltG.toNullableDouble(),
     source = source.toSourceUrlOrBlank(),
     reasoning = reasoning.trim(),
+)
+
+/** Unknown or legacy category names resolve to the neutral fallback rather than failing. */
+private fun String.toMealCategoryOrOther(): MealCategory =
+    runCatching { MealCategory.valueOf(this) }.getOrDefault(MealCategory.OTHER)
+
+private fun List<String>.plusUnreadableItemsWarningIf(unreadable: Boolean): List<String> =
+    if (unreadable && UNREADABLE_MEAL_ITEMS_WARNING !in this) this + UNREADABLE_MEAL_ITEMS_WARNING else this
+
+/**
+ * The totals persisted on the meal row itself, used when [MealEntity.itemsJson] cannot be decoded so
+ * the meal keeps its real numbers instead of collapsing to zero.
+ */
+private fun MealEntity.toStoredNutritionTotals(): NutritionTotals = NutritionTotals(
+    caloriesKcal = caloriesKcal,
+    amountGml = amountGml,
+    proteinG = proteinG,
+    carbsG = carbsG,
+    fatG = fatG,
+    saturatedFatG = saturatedFatG,
+    sugarG = sugarG,
+    saltG = saltG,
 )
 
 private fun List<FoodItemEstimate>.toSummedNutritionTotals(): NutritionTotals = NutritionTotals(

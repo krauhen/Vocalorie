@@ -53,12 +53,11 @@ enum class OpenAiModelChoice(val label: String) {
 }
 
 object ToolSettingsLabels {
-    fun last4(apiKey: String): String = apiKey.trim().takeLast(4)
+    fun last4(apiKey: String): String = SecretKeyLabels.last4(apiKey)
 
-    fun braveKeyLabel(last4: String?): String? {
-        val suffix = last4?.trim().orEmpty()
-        return if (suffix.isBlank()) null else "Saved Brave key ending in $suffix"
-    }
+    fun braveKeyLabel(last4: String?): String? = SecretKeyLabels.savedKeyLabel(last4, BRAVE_KEY_NAME)
+
+    fun unreadableBraveKeyLabel(): String = SecretKeyLabels.unreadableKeyLabel(BRAVE_KEY_NAME)
 
     fun braveModeLabel(hasKey: Boolean): String =
         if (hasKey) "Brave Search: real API configured" else "Brave Search: API key required"
@@ -68,4 +67,6 @@ object ToolSettingsLabels {
     fun openAiModelLabel(choice: OpenAiModelChoice): String = choice.label
 
     fun openAiModelLabel(choiceName: String?): String = OpenAiModelChoice.fromName(choiceName).label
+
+    private const val BRAVE_KEY_NAME = "Brave key"
 }
