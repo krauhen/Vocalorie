@@ -120,9 +120,27 @@ fun findCachedMealMatch(cachedMeals: List<CachedMealEntity>, requestQuery: Strin
     if (normalizedRequestKey.isBlank()) return null
 
     val entry = cachedMeals.firstOrNull { it.normalizedKey == normalizedRequestKey } ?: return null
-    val meal = entry.toSavedMeal()
+    return entry.toCachedMealMatch(requestQuery)
+}
+
+/**
+ * Turn an already-matched cache row into the reusable match, scaled to the request's amount. This is
+ * the half of [findCachedMealMatch] that stays useful once the row is found by a keyed query instead
+ * of a scan; matching itself is `normalizedKey == requestQuery.toStableNormalizedMealKey()`.
+ */
+fun CachedMealEntity.toCachedMealMatch(requestQuery: String): CachedMealMatch {
+    val meal = toSavedMeal()
     return CachedMealMatch(meal = meal, draft = meal.toPreparedCachedDraft(requestQuery))
 }
+
+/**
+ * The distinct normalized item-name keys this draft would look up in the item-name cache, so a
+ * caller can query exactly those names instead of reading the whole table.
+ */
+fun EditableMealDraft.cachedItemNameKeys(): List<String> = items
+    .map { it.name.toStableNormalizedMealKey() }
+    .filter { it.isNotBlank() }
+    .distinct()
 
 /** Decode a cached meal entry back into a [SavedMeal] for reuse (synthetic id/timestamp). */
 fun CachedMealEntity.toSavedMeal(): SavedMeal {

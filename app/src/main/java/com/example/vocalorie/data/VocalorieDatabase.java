@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 @Database(
     entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
     version = 10,
-    exportSchema = false
+    exportSchema = true
 )
 public abstract class VocalorieDatabase extends RoomDatabase {
     public abstract MealDao mealDao();
