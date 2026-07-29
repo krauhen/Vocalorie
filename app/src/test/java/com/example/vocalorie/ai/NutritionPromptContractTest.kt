@@ -1,6 +1,6 @@
 package com.example.vocalorie.ai
 
-import java.io.File
+import com.example.vocalorie.testsupport.productionSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,8 +8,8 @@ import org.junit.Test
 class NutritionPromptContractTest {
     @Test
     fun promptRequiresMacrosAndRealImageInputWheneverCaloriesAreEstimated() {
-        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionAgent.kt")
-        val dtoSource = source("app/src/main/java/com/example/vocalorie/model/NutritionEstimateDtos.kt")
+        val promptSource = productionSource("KoogNutritionAgent.kt")
+        val dtoSource = productionSource("NutritionEstimateDtos.kt")
 
         assertTrue(promptSource.contains("protein, carbohydrates, and fat"))
         assertTrue(promptSource.contains("amount in g/ml"))
@@ -47,8 +47,8 @@ class NutritionPromptContractTest {
 
     @Test
     fun roomDatabaseRegistersMigrationsIncludingV6ActivitiesTable() {
-        val databaseSource = source("app/src/main/java/com/example/vocalorie/data/VocalorieDatabase.java")
-        val entitySource = source("app/src/main/java/com/example/vocalorie/data/MealEntity.kt")
+        val databaseSource = productionSource("VocalorieDatabase.java")
+        val entitySource = productionSource("MealEntity.kt")
 
         assertTrue(databaseSource.contains("version = 9"))
         assertTrue(databaseSource.contains("Migration(1, 2)"))
@@ -81,7 +81,7 @@ class NutritionPromptContractTest {
 
     @Test
     fun koogPromptUsesStructuredJsonSchemaAndInlineImageAttachment() {
-        val promptSource = source("app/src/main/java/com/example/vocalorie/ai/KoogNutritionAgent.kt")
+        val promptSource = productionSource("KoogNutritionAgent.kt")
 
         assertTrue(promptSource.contains("GPT54MINI"))
         assertTrue(promptSource.contains("GPT5_4Mini"))
@@ -90,7 +90,4 @@ class NutritionPromptContractTest {
         assertTrue(promptSource.contains("image(it.image)"))
     }
 
-    private fun source(path: String): String = File(path).takeIf { it.exists() }
-        ?.readText()
-        ?: File("../$path").readText()
 }

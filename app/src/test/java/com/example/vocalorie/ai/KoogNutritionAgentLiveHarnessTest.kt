@@ -8,8 +8,10 @@ import java.io.File
 import java.util.Properties
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
+import org.junit.Ignore
 import org.junit.Test
 
+@Ignore("Live network + billable + machine-specific path; run manually")
 class KoogNutritionAgentLiveHarnessTest {
     @Test
     fun liveOpenAiEstimateFor100gPickleImage() = runBlocking {

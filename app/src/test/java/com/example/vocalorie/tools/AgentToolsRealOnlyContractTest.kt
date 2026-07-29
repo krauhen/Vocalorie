@@ -1,7 +1,7 @@
 package com.example.vocalorie.tools
 
+import com.example.vocalorie.testsupport.productionSourceRoot
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.io.path.name
 import kotlin.streams.asSequence
 import org.junit.Assert.assertTrue
@@ -10,10 +10,7 @@ import org.junit.Test
 class AgentToolsRealOnlyContractTest {
     @Test
     fun braveAndWebFetchSourcesDoNotContainMockToolGates() {
-        val sourceRoot = listOf(
-            Path.of("app", "src", "main", "java", "com", "example", "vocalorie"),
-            Path.of("src", "main", "java", "com", "example", "vocalorie"),
-        ).first(Files::exists)
+        val sourceRoot = productionSourceRoot().toPath()
         val forbidden = listOf(
             "useReal" + "BraveSearch",
             "useReal" + "WebFetch",

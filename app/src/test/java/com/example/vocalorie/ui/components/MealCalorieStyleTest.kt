@@ -1,6 +1,6 @@
 package com.example.vocalorie.ui.components
 
-import java.io.File
+import com.example.vocalorie.testsupport.productionSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -25,7 +25,7 @@ class MealCalorieStyleTest {
 
     @Test
     fun savedEntryBackgroundStyleDoesNotUseConfidenceOrReviewState() {
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
 
         assertTrue(mealEntriesScreen.contains("mealCalorieStateStyle(meal.totals.caloriesKcal)"))
         assertTrue(mealEntriesScreen.contains("formatDate(meal.createdAtEpochMillis)"))
@@ -34,7 +34,4 @@ class MealCalorieStyleTest {
         assertFalse(mealEntriesScreen.contains("if (meal.needsHumanReview) 2.dp else 1.dp"))
     }
 
-    private fun source(path: String): String = File(path).takeIf { it.exists() }
-        ?.readText()
-        ?: File("../$path").readText()
 }

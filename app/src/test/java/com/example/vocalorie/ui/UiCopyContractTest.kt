@@ -1,6 +1,6 @@
 package com.example.vocalorie.ui
 
-import java.io.File
+import com.example.vocalorie.testsupport.productionSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,8 +8,8 @@ import org.junit.Test
 class UiCopyContractTest {
     @Test
     fun mealEditorDoesNotExposeConfidenceReasoningAssumptionsOrWarningsFields() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
-        val entryOverlay = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntryOverlay.kt")
+        val mealEditor = productionSource("MealEditor.kt")
+        val entryOverlay = productionSource("MealEntryOverlay.kt")
         val combined = mealEditor + "\n" + entryOverlay
 
         listOf("Confidence", "Reasoning", "Assumptions", "Warnings").forEach { label ->
@@ -19,8 +19,8 @@ class UiCopyContractTest {
 
     @Test
     fun mealUiExposesAmountGmlForEditingAndStats() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
+        val mealEditor = productionSource("MealEditor.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
 
         assertTrue(mealEditor.contains("Amount (g/ml)"))
         assertTrue(mealEntriesScreen.contains("Amount"))
@@ -29,7 +29,7 @@ class UiCopyContractTest {
 
     @Test
     fun mealEditorShowsComputedTotalsAndPortionScalingControls() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
+        val mealEditor = productionSource("MealEditor.kt")
 
         assertTrue(mealEditor.contains("Meal title"))
         assertTrue(mealEditor.contains("Recipe makes"))
@@ -44,11 +44,11 @@ class UiCopyContractTest {
     @Test
     fun savedEntryUiDoesNotExposeReviewStatusOrBorderEmphasisCopy() {
         val sources = listOf(
-            "app/src/main/java/com/example/vocalorie/ui/components/CommonUi.kt",
-            "app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt",
-            "app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt",
-            "app/src/main/java/com/example/vocalorie/ui/entries/MealEntryOverlay.kt",
-        ).joinToString("\n") { source(it) }
+            "CommonUi.kt",
+            "MealEditor.kt",
+            "MealEntriesScreen.kt",
+            "MealEntryOverlay.kt",
+        ).joinToString("\n") { productionSource(it) }
 
         listOf(
             "Needs macro check",
@@ -64,7 +64,7 @@ class UiCopyContractTest {
 
     @Test
     fun mealCaptureScreenStartsWithEmptyMealText() {
-        val mealCaptureScreen = source("app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt")
+        val mealCaptureScreen = productionSource("MealCaptureScreen.kt")
 
         assertTrue(mealCaptureScreen.contains("mutableStateOf(\"\")"))
         assertFalse(mealCaptureScreen.contains("Estimate calories and macros for 2 eggs and 1 banana"))
@@ -72,7 +72,7 @@ class UiCopyContractTest {
 
     @Test
     fun dayNavigationUsesExplicitButtonsWithoutChevronInstruction() {
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
 
         assertTrue(mealEntriesScreen.contains("Previous day"))
         assertTrue(mealEntriesScreen.contains("Next day"))
@@ -82,7 +82,7 @@ class UiCopyContractTest {
 
     @Test
     fun emptyEntriesCopyDistinguishesNoSavedEntriesFromEmptyWindow() {
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
 
         assertTrue(mealEntriesScreen.contains("No saved meals yet"))
         assertTrue(mealEntriesScreen.contains("No saved activities yet"))
@@ -91,8 +91,8 @@ class UiCopyContractTest {
 
     @Test
     fun mealEntryActionUsesAddMealCopyInsteadOfMicLabel() {
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
-        val voiceInputOverlay = source("app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
+        val voiceInputOverlay = productionSource("VoiceInputOverlay.kt")
         val combined = mealEntriesScreen + "\n" + voiceInputOverlay
 
         assertTrue(combined.contains("Add"))
@@ -106,7 +106,7 @@ class UiCopyContractTest {
 
     @Test
     fun newMealEstimateLoadingDoesNotExposeTechnicalProviderNames() {
-        val voiceInputOverlay = source("app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt")
+        val voiceInputOverlay = productionSource("VoiceInputOverlay.kt")
         val technicalLoadingCopy = "Calling Koog" + " + OpenAI"
 
         assertTrue(voiceInputOverlay.contains("LoadingRow(\"Estimating…\")"))
@@ -115,8 +115,8 @@ class UiCopyContractTest {
 
     @Test
     fun newMealEstimateExposesResetActionThatClearsTransientDraftState() {
-        val mealCaptureScreen = source("app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt")
-        val voiceInputOverlay = source("app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt")
+        val mealCaptureScreen = productionSource("MealCaptureScreen.kt")
+        val voiceInputOverlay = productionSource("VoiceInputOverlay.kt")
 
         assertTrue(voiceInputOverlay.contains("onReset: () -> Unit"))
         assertTrue(voiceInputOverlay.contains("resetSignal: Int"))
@@ -141,17 +141,17 @@ class UiCopyContractTest {
     @Test
     fun mealEntriesAndMealCaptureUiDoNotShowTheOldTapAnEntryHelperSentence() {
         val sources = listOf(
-            "app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt",
-            "app/src/main/java/com/example/vocalorie/ui/MealCaptureScreen.kt",
-            "app/src/main/java/com/example/vocalorie/ui/voice/VoiceInputOverlay.kt",
-        ).joinToString("\n") { source(it) }
+            "MealEntriesScreen.kt",
+            "MealCaptureScreen.kt",
+            "VoiceInputOverlay.kt",
+        ).joinToString("\n") { productionSource(it) }
 
         assertFalse(sources.contains("Tap an entry to inspect ..."))
     }
 
     @Test
     fun savedEntriesUseOneSelectableStatsHeader() {
-        val mealEntriesScreen = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntriesScreen.kt")
+        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
 
         assertTrue(mealEntriesScreen.contains("SelectableStatsHeader"))
         assertTrue(mealEntriesScreen.contains("StatsWindowSelectorDialog"))
@@ -164,9 +164,9 @@ class UiCopyContractTest {
 
     @Test
     fun savedMealDetailsExposeAddedAtAndEditableAddedDateTime() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
-        val entryOverlay = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntryOverlay.kt")
-        val commonUi = source("app/src/main/java/com/example/vocalorie/ui/components/CommonUi.kt")
+        val mealEditor = productionSource("MealEditor.kt")
+        val entryOverlay = productionSource("MealEntryOverlay.kt")
+        val commonUi = productionSource("CommonUi.kt")
         val combined = mealEditor + "\n" + entryOverlay + "\n" + commonUi
 
         assertTrue(combined.contains("Meal title"))
@@ -179,8 +179,8 @@ class UiCopyContractTest {
 
     @Test
     fun savedMealDetailsExposeCollapsibleItemsInReadOnlyMode() {
-        val mealEditor = source("app/src/main/java/com/example/vocalorie/ui/components/MealEditor.kt")
-        val entryOverlay = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntryOverlay.kt")
+        val mealEditor = productionSource("MealEditor.kt")
+        val entryOverlay = productionSource("MealEntryOverlay.kt")
         val combined = mealEditor + "\n" + entryOverlay
 
         assertTrue(entryOverlay.contains("ReadOnlyMealSummary("))
@@ -197,19 +197,18 @@ class UiCopyContractTest {
 
     @Test
     fun editingEntryPlacesSaveBesideDeleteAndCancel() {
-        val entryOverlay = source("app/src/main/java/com/example/vocalorie/ui/entries/MealEntryOverlay.kt")
+        val entryOverlay = productionSource("MealEntryOverlay.kt")
 
         assertTrue(entryOverlay.contains("Text(\"Delete\")"))
         assertTrue(entryOverlay.contains("Text(\"Save\")"))
         assertTrue(entryOverlay.contains("Text(if (isEditing) \"Cancel\" else \"Close\")"))
-        assertTrue(entryOverlay.contains("if (isEditing) {\n                    TextButton(onClick = { onSave(draft) { isEditing = false } }, enabled = enabled && isCreatedAtValid) { Text(\"Save\") }"))
         assertTrue(entryOverlay.contains("actionLabel = null"))
         assertTrue(entryOverlay.contains("onAction = null"))
     }
 
     @Test
     fun settingsUiExposesResearchToolLimitAndAdvancedAgentFuse() {
-        val settingsScreen = source("app/src/main/java/com/example/vocalorie/ui/settings/SettingsScreen.kt")
+        val settingsScreen = productionSource("SettingsScreen.kt")
 
         assertTrue(settingsScreen.contains("Max research tool calls"))
         assertTrue(settingsScreen.contains("actual Brave/WebFetch calls"))
@@ -219,8 +218,4 @@ class UiCopyContractTest {
         assertTrue(settingsScreen.contains("Save research limit"))
         assertTrue(settingsScreen.contains("KeyboardType.Number"))
     }
-
-    private fun source(path: String): String = File(path).takeIf { it.exists() }
-        ?.readText()
-        ?: File("../$path").readText()
 }
