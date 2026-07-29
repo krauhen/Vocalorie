@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -28,13 +29,22 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
+import com.example.vocalorie.model.EditableNutrition
 import com.example.vocalorie.model.FoodItemEstimate
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.portionScaleFactor
+import com.example.vocalorie.model.toEditableNutrition
 import com.example.vocalorie.model.withItemsScaledByPortionFromBaseline
+import com.example.vocalorie.model.withNutrition
 import com.example.vocalorie.model.withTotalsSummedFromItems
 import java.math.BigDecimal
 import kotlin.math.roundToInt
+
+/** Quick-portion factors take only literal arguments, so they are constant for the whole app. */
+private val QUARTER_PORTION_FACTOR = portionScaleFactor(recipeMakes = "4", ate = "1")
+private val HALF_PORTION_FACTOR = portionScaleFactor(recipeMakes = "2", ate = "1")
+private val THREE_QUARTER_PORTION_FACTOR = portionScaleFactor(recipeMakes = "4", ate = "3")
+private val ALL_PORTION_FACTOR = portionScaleFactor(recipeMakes = "1", ate = "1")
 
 @Composable
 fun EditableMealEditor(
@@ -49,6 +59,25 @@ fun EditableMealEditor(
 ) {
     val style = mealStateStyle(draft.confidence, draft.needsHumanReview)
     var itemsExpanded by rememberSaveable(draft.title, draft.query) { mutableStateOf(false) }
+    val currentDraft by rememberUpdatedState(draft)
+    val currentOnDraftChange by rememberUpdatedState(onDraftChange)
+    val onItemChange: (Int, EditableFoodItem) -> Unit = remember {
+        { index, updated ->
+            val current = currentDraft
+            currentOnDraftChange(
+                current.copy(items = current.items.toMutableList().also { it[index] = updated }),
+            )
+        }
+    }
+    val onItemNutritionChange: (Int, EditableFoodItem) -> Unit = remember {
+        { index, updated ->
+            val current = currentDraft
+            currentOnDraftChange(
+                current.copy(items = current.items.toMutableList().also { it[index] = updated })
+                    .withTotalsSummedFromItems(),
+            )
+        }
+    }
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -84,30 +113,10 @@ fun EditableMealEditor(
 
             SectionTitle("Totals")
             NutritionFields(
-                calories = draft.caloriesKcal,
-                amount = draft.amountGml,
-                fat = draft.fatG,
-                saturatedFat = draft.saturatedFatG,
-                carbs = draft.carbsG,
-                sugar = draft.sugarG,
-                protein = draft.proteinG,
-                salt = draft.saltG,
+                nutrition = draft.toEditableNutrition(),
                 enabled = enabled,
                 readOnly = true,
-                onChange = { calories, amount, fat, saturatedFat, carbs, sugar, protein, salt ->
-                    onDraftChange(
-                        draft.copy(
-                            caloriesKcal = calories,
-                            amountGml = amount,
-                            fatG = fat,
-                            saturatedFatG = saturatedFat,
-                            carbsG = carbs,
-                            sugarG = sugar,
-                            proteinG = protein,
-                            saltG = salt,
-                        ),
-                    )
-                },
+                onChange = { nutrition -> onDraftChange(draft.withNutrition(nutrition)) },
             )
 
             PortionScalingControls(
@@ -126,17 +135,11 @@ fun EditableMealEditor(
             if (itemsExpanded) {
                 draft.items.forEachIndexed { index, item ->
                     EditableFoodItemCard(
+                        index = index,
                         item = item,
                         enabled = enabled,
-                        onChange = { updated ->
-                            onDraftChange(draft.copy(items = draft.items.toMutableList().also { it[index] = updated }))
-                        },
-                        onNutritionChange = { updated ->
-                            onDraftChange(
-                                draft.copy(items = draft.items.toMutableList().also { it[index] = updated })
-                                    .withTotalsSummedFromItems(),
-                            )
-                        },
+                        onChange = onItemChange,
+                        onNutritionChange = onItemNutritionChange,
                     )
                 }
             }
@@ -193,10 +196,6 @@ private fun PortionScalingControls(
     }
 
     val enteredFactor = portionScaleFactor(recipeMakes = recipeMakes, ate = iAte)
-    val quarterFactor = portionScaleFactor(recipeMakes = "4", ate = "1")
-    val halfFactor = portionScaleFactor(recipeMakes = "2", ate = "1")
-    val threeQuarterFactor = portionScaleFactor(recipeMakes = "4", ate = "3")
-    val allFactor = portionScaleFactor(recipeMakes = "1", ate = "1")
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -225,10 +224,10 @@ private fun PortionScalingControls(
             }
             Button(onClick = { applyScale(recipeMakes, iAte) }, enabled = canApplyScale(enteredFactor), modifier = Modifier.fillMaxWidth()) { Text("Apply portion") }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { applyScale("4", "1") }, enabled = canApplyScale(quarterFactor), modifier = Modifier.weight(1f)) { Text("¼") }
-                OutlinedButton(onClick = { applyScale("2", "1") }, enabled = canApplyScale(halfFactor), modifier = Modifier.weight(1f)) { Text("½") }
-                OutlinedButton(onClick = { applyScale("4", "3") }, enabled = canApplyScale(threeQuarterFactor), modifier = Modifier.weight(1f)) { Text("¾") }
-                OutlinedButton(onClick = { applyScale("1", "1") }, enabled = canApplyScale(allFactor), modifier = Modifier.weight(1f)) { Text("All") }
+                OutlinedButton(onClick = { applyScale("4", "1") }, enabled = canApplyScale(QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("¼") }
+                OutlinedButton(onClick = { applyScale("2", "1") }, enabled = canApplyScale(HALF_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("½") }
+                OutlinedButton(onClick = { applyScale("4", "3") }, enabled = canApplyScale(THREE_QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("¾") }
+                OutlinedButton(onClick = { applyScale("1", "1") }, enabled = canApplyScale(ALL_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("All") }
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
         }
@@ -328,10 +327,11 @@ private fun ReadOnlyFoodItemCard(item: FoodItemEstimate) {
 
 @Composable
 private fun EditableFoodItemCard(
+    index: Int,
     item: EditableFoodItem,
     enabled: Boolean,
-    onChange: (EditableFoodItem) -> Unit,
-    onNutritionChange: (EditableFoodItem) -> Unit,
+    onChange: (Int, EditableFoodItem) -> Unit,
+    onNutritionChange: (Int, EditableFoodItem) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -340,46 +340,26 @@ private fun EditableFoodItemCard(
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = item.name,
-                onValueChange = { onChange(item.copy(name = it)) },
+                onValueChange = { onChange(index, item.copy(name = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Food") },
                 enabled = enabled,
             )
             OutlinedTextField(
                 value = item.quantity,
-                onValueChange = { onChange(item.copy(quantity = it)) },
+                onValueChange = { onChange(index, item.copy(quantity = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Quantity") },
                 enabled = enabled,
             )
             NutritionFields(
-                calories = item.caloriesKcal,
-                amount = item.amountGml,
-                fat = item.fatG,
-                saturatedFat = item.saturatedFatG,
-                carbs = item.carbsG,
-                sugar = item.sugarG,
-                protein = item.proteinG,
-                salt = item.saltG,
+                nutrition = item.toEditableNutrition(),
                 enabled = enabled,
-                onChange = { calories, amount, fat, saturatedFat, carbs, sugar, protein, salt ->
-                    onNutritionChange(
-                        item.copy(
-                            caloriesKcal = calories,
-                            amountGml = amount,
-                            fatG = fat,
-                            saturatedFatG = saturatedFat,
-                            carbsG = carbs,
-                            sugarG = sugar,
-                            proteinG = protein,
-                            saltG = salt,
-                        ),
-                    )
-                },
+                onChange = { nutrition -> onNutritionChange(index, item.withNutrition(nutrition)) },
             )
             OutlinedTextField(
                 value = item.source,
-                onValueChange = { onChange(item.copy(source = it)) },
+                onValueChange = { onChange(index, item.copy(source = it)) },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Source URL") },
                 enabled = enabled,
@@ -391,22 +371,15 @@ private fun EditableFoodItemCard(
 
 @Composable
 private fun NutritionFields(
-    calories: String,
-    amount: String,
-    fat: String,
-    saturatedFat: String,
-    carbs: String,
-    sugar: String,
-    protein: String,
-    salt: String,
+    nutrition: EditableNutrition,
     enabled: Boolean,
     readOnly: Boolean = false,
-    onChange: (String, String, String, String, String, String, String, String) -> Unit,
+    onChange: (EditableNutrition) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
-            value = calories,
-            onValueChange = { onChange(it, amount, fat, saturatedFat, carbs, sugar, protein, salt) },
+            value = nutrition.calories,
+            onValueChange = { onChange(nutrition.copy(calories = it)) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Energy kcal") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -414,8 +387,8 @@ private fun NutritionFields(
             readOnly = readOnly,
         )
         OutlinedTextField(
-            value = amount,
-            onValueChange = { onChange(calories, it, fat, saturatedFat, carbs, sugar, protein, salt) },
+            value = nutrition.amount,
+            onValueChange = { onChange(nutrition.copy(amount = it)) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Amount (g/ml)") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -424,8 +397,8 @@ private fun NutritionFields(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = fat,
-                onValueChange = { onChange(calories, amount, it, saturatedFat, carbs, sugar, protein, salt) },
+                value = nutrition.fat,
+                onValueChange = { onChange(nutrition.copy(fat = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Fat g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -433,8 +406,8 @@ private fun NutritionFields(
                 readOnly = readOnly,
             )
             OutlinedTextField(
-                value = saturatedFat,
-                onValueChange = { onChange(calories, amount, fat, it, carbs, sugar, protein, salt) },
+                value = nutrition.saturatedFat,
+                onValueChange = { onChange(nutrition.copy(saturatedFat = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Saturates g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -444,8 +417,8 @@ private fun NutritionFields(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = carbs,
-                onValueChange = { onChange(calories, amount, fat, saturatedFat, it, sugar, protein, salt) },
+                value = nutrition.carbs,
+                onValueChange = { onChange(nutrition.copy(carbs = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Carbohydrate g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -453,8 +426,8 @@ private fun NutritionFields(
                 readOnly = readOnly,
             )
             OutlinedTextField(
-                value = sugar,
-                onValueChange = { onChange(calories, amount, fat, saturatedFat, carbs, it, protein, salt) },
+                value = nutrition.sugar,
+                onValueChange = { onChange(nutrition.copy(sugar = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Sugars g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -464,8 +437,8 @@ private fun NutritionFields(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
-                value = protein,
-                onValueChange = { onChange(calories, amount, fat, saturatedFat, carbs, sugar, it, salt) },
+                value = nutrition.protein,
+                onValueChange = { onChange(nutrition.copy(protein = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Protein g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -473,8 +446,8 @@ private fun NutritionFields(
                 readOnly = readOnly,
             )
             OutlinedTextField(
-                value = salt,
-                onValueChange = { onChange(calories, amount, fat, saturatedFat, carbs, sugar, protein, it) },
+                value = nutrition.salt,
+                onValueChange = { onChange(nutrition.copy(salt = it)) },
                 modifier = Modifier.weight(1f),
                 label = { Text("Salt g") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),

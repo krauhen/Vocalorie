@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +40,10 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
 import kotlin.math.roundToInt
 
+private val heatmapDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
+
+private val HeatmapCellShape = RoundedCornerShape(2.dp)
+
 private val HeatmapDeepGreen = Color(0xFF2E7D32)
 private val HeatmapGreen = Color(0xFF43A047)
 private val HeatmapYellow = Color(0xFFFDD835)
@@ -58,6 +63,7 @@ internal fun scoreToColor(score: Double): Color = when {
 fun MealStatsOverview(
     meals: List<SavedMeal>,
     selectedRange: MealStatsRange,
+    now: Instant,
     onRangeChange: (MealStatsRange) -> Unit,
     modifier: Modifier = Modifier,
     activities: List<SavedActivity> = emptyList(),
@@ -66,7 +72,9 @@ fun MealStatsOverview(
     selectedDate: LocalDate? = null,
     onDateSelected: (LocalDate) -> Unit = {},
 ) {
-    val stats = computeMealStats(meals, selectedRange, Instant.now(), zone)
+    // `now` is hoisted by the caller: computing it here would defeat memoization, and the whole-history
+    // fold/streak/heatmap passes would then re-run on every recomposition.
+    val stats = remember(meals, selectedRange, now, zone) { computeMealStats(meals, selectedRange, now, zone) }
     val activityBurnedByDate = remember(activities, zone) {
         activities.groupingBy { Instant.ofEpochMilli(it.createdAtEpochMillis).atZone(zone).toLocalDate() }
             .fold(0.0) { acc, activity -> acc + activity.caloriesBurnedKcal }
@@ -194,28 +202,35 @@ private fun MealStatsHeatmap(
         return
     }
 
-    val sortedDates = heatmap.keys.sorted()
-    val startDate = sortedDates.first()
-    val today = sortedDates.last()
     val emptyColor = MaterialTheme.colorScheme.surfaceVariant
     val outOfRangeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
     val crossColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
     val selectedIndicatorColor = MaterialTheme.colorScheme.primary
     val selectedIndicatorHaloColor = MaterialTheme.colorScheme.surface
-    val formatter = DateTimeFormatter.ofPattern("d MMM")
-    val weekFields = WeekFields.ISO
 
-    // Column-major: each column is one Mon-Sun week, oldest (complete) week on the left,
-    // current (possibly partial) week on the right.
-    val columns = (0 until HEATMAP_COLUMN_COUNT).map { col ->
-        val weekMonday = startDate.plusDays(col.toLong() * 7)
-        weekMonday to (0 until HEATMAP_ROW_COUNT).map { row -> weekMonday.plusDays(row.toLong()) }
+    // Read through the latest callback so the precomputed per-cell click handlers stay valid even
+    // when `onDateSelected` changes identity, without rebuilding the grid.
+    val latestOnDateSelected = rememberUpdatedState(onDateSelected)
+    // Scores and cell colours are resolved once per input change: 98 `nutritionScore` calls per
+    // recomposition (every day-navigation or heatmap tap) is what made this view stutter.
+    // `selectedDate` is deliberately not a key - the selection ring is decided at the cell.
+    val grid = remember(heatmap, dailyTotals, rangeStartDate, goals, activityBurnedByDate, emptyColor, outOfRangeColor) {
+        buildHeatmapGrid(
+            heatmap = heatmap,
+            dailyTotals = dailyTotals,
+            rangeStartDate = rangeStartDate,
+            goals = goals,
+            activityBurnedByDate = activityBurnedByDate,
+            emptyColor = emptyColor,
+            outOfRangeColor = outOfRangeColor,
+            onDateSelected = { date -> latestOnDateSelected.value(date) },
+        )
     }
 
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        columns.forEach { (weekMonday, _) ->
+        grid.columns.forEach { column ->
             Text(
-                text = weekMonday.get(weekFields.weekOfWeekBasedYear()).toString(),
+                text = column.weekLabel,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -228,30 +243,18 @@ private fun MealStatsHeatmap(
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         for (row in 0 until HEATMAP_ROW_COUNT) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                columns.forEach { (_, weekDates) ->
-                    val date = weekDates[row]
-                    val calories = if (date.isAfter(today)) null else heatmap[date]
-                    val score = if (date.isAfter(today)) null else dailyTotals[date]?.let {
-                        nutritionScore(it, goals, activityBurnedByDate[date] ?: 0.0)
-                    }
-                    val isOutOfRange = date.isBefore(rangeStartDate)
-                    val isTracked = calories != null && calories > 0.0
-                    val isSelected = date == selectedDate
-                    val cellColor = when {
-                        calories == null -> Color.Transparent
-                        score == null -> emptyColor
-                        isOutOfRange -> outOfRangeColor
-                        else -> scoreToColor(score)
-                    }
+                grid.columns.forEach { column ->
+                    val cell = column.cells[row]
+                    val isSelected = cell.date == selectedDate
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .aspectRatio(1f)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(cellColor)
-                            .clickable(onClick = { onDateSelected(date) }),
+                            .clip(HeatmapCellShape)
+                            .background(cell.color)
+                            .clickable(onClick = cell.onClick),
                     ) {
-                        if (isOutOfRange && isTracked) {
+                        if (cell.showOutOfRangeCross) {
                             Canvas(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
                                 val strokeWidth = size.minDimension * 0.12f
                                 drawLine(crossColor, start = Offset(0f, 0f), end = Offset(size.width, size.height), strokeWidth = strokeWidth)
@@ -300,10 +303,81 @@ private fun MealStatsHeatmap(
         }
     }
 
-    val firstLabel = startDate.format(formatter)
-    val lastLabel = today.format(formatter)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(firstLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(lastLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(grid.firstLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(grid.lastLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** One heatmap cell, fully resolved outside composition apart from the selection ring. */
+private class HeatmapCell(
+    val date: LocalDate,
+    val color: Color,
+    val showOutOfRangeCross: Boolean,
+    val onClick: () -> Unit,
+)
+
+/** One Mon-Sun week column, top row Monday. */
+private class HeatmapColumn(
+    val weekLabel: String,
+    val cells: List<HeatmapCell>,
+)
+
+private class HeatmapGrid(
+    val columns: List<HeatmapColumn>,
+    val firstLabel: String,
+    val lastLabel: String,
+)
+
+/**
+ * Column-major: each column is one Mon-Sun week, oldest (complete) week on the left,
+ * current (possibly partial) week on the right.
+ */
+private fun buildHeatmapGrid(
+    heatmap: Map<LocalDate, Double>,
+    dailyTotals: Map<LocalDate, DailyNutritionTotals>,
+    rangeStartDate: LocalDate,
+    goals: NutritionGoals,
+    activityBurnedByDate: Map<LocalDate, Double>,
+    emptyColor: Color,
+    outOfRangeColor: Color,
+    onDateSelected: (LocalDate) -> Unit,
+): HeatmapGrid {
+    val sortedDates = heatmap.keys.sorted()
+    val startDate = sortedDates.first()
+    val today = sortedDates.last()
+    val weekOfYear = WeekFields.ISO.weekOfWeekBasedYear()
+
+    val columns = (0 until HEATMAP_COLUMN_COUNT).map { col ->
+        val weekMonday = startDate.plusDays(col.toLong() * 7)
+        HeatmapColumn(
+            weekLabel = weekMonday.get(weekOfYear).toString(),
+            cells = (0 until HEATMAP_ROW_COUNT).map { row ->
+                val date = weekMonday.plusDays(row.toLong())
+                val calories = if (date.isAfter(today)) null else heatmap[date]
+                val score = if (date.isAfter(today)) null else dailyTotals[date]?.let {
+                    nutritionScore(it, goals, activityBurnedByDate[date] ?: 0.0)
+                }
+                val isOutOfRange = date.isBefore(rangeStartDate)
+                val isTracked = calories != null && calories > 0.0
+                HeatmapCell(
+                    date = date,
+                    color = when {
+                        calories == null -> Color.Transparent
+                        score == null -> emptyColor
+                        isOutOfRange -> outOfRangeColor
+                        else -> scoreToColor(score)
+                    },
+                    showOutOfRangeCross = isOutOfRange && isTracked,
+                    onClick = { onDateSelected(date) },
+                )
+            },
+        )
+    }
+
+    return HeatmapGrid(
+        columns = columns,
+        firstLabel = startDate.format(heatmapDateFormatter),
+        lastLabel = today.format(heatmapDateFormatter),
+    )
 }

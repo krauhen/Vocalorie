@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,7 +61,10 @@ import com.example.vocalorie.ui.components.EditableMealEditor
 import com.example.vocalorie.ui.components.ErrorCard
 import com.example.vocalorie.ui.components.LoadingRow
 import com.example.vocalorie.ui.voice.toGalleryImageAttachment
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -302,8 +306,10 @@ private fun SpeechInputControls(
     resetSignal: Int,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var isListening by remember { mutableStateOf(false) }
     var keepListening by remember { mutableStateOf(false) }
+    var isPreparingImages by remember { mutableStateOf(false) }
     var voiceMessage by remember { mutableStateOf<String?>(null) }
     var startAfterPermission by remember { mutableStateOf(false) }
     var restartRequest by remember { mutableStateOf(0) }
@@ -325,14 +331,36 @@ private fun SpeechInputControls(
         if (uris.isEmpty()) {
             voiceMessage = "No photo selected."
         } else {
-            val newAttachments = uris.map { context.toGalleryImageAttachment(it) }
-            val merged = (attachedImages + newAttachments).take(MAX_IMAGE_ATTACHMENTS)
-            onImagesChange(merged)
-            val droppedCount = attachedImages.size + newAttachments.size - merged.size
-            voiceMessage = if (droppedCount > 0) {
-                "Attached ${merged.size - attachedImages.size} photo(s); $droppedCount dropped, max $MAX_IMAGE_ATTACHMENTS photos."
-            } else {
-                "Photo(s) attached: ${newAttachments.joinToString(", ") { it.label }}"
+            val existingImages = attachedImages
+            isPreparingImages = true
+            voiceMessage = null
+            scope.launch {
+                try {
+                    val prepared = withContext(Dispatchers.IO) {
+                        uris.map { uri -> runCatching { context.toGalleryImageAttachment(uri) } }
+                    }
+                    val newAttachments = prepared.mapNotNull { it.getOrNull() }
+                    val failedCount = prepared.size - newAttachments.size
+                    if (newAttachments.isEmpty()) {
+                        voiceMessage = imagePreparationFailureMessage(failedCount)
+                        return@launch
+                    }
+                    val merged = (existingImages + newAttachments).take(MAX_IMAGE_ATTACHMENTS)
+                    onImagesChange(merged)
+                    val droppedCount = existingImages.size + newAttachments.size - merged.size
+                    val attachedMessage = if (droppedCount > 0) {
+                        "Attached ${merged.size - existingImages.size} photo(s); $droppedCount dropped, max $MAX_IMAGE_ATTACHMENTS photos."
+                    } else {
+                        "Photo(s) attached: ${newAttachments.joinToString(", ") { it.label }}"
+                    }
+                    voiceMessage = if (failedCount > 0) {
+                        "$attachedMessage ${imagePreparationFailureMessage(failedCount)}"
+                    } else {
+                        attachedMessage
+                    }
+                } finally {
+                    isPreparingImages = false
+                }
             }
         }
     }
@@ -429,7 +457,7 @@ private fun SpeechInputControls(
     }
 
     fun pickImage() {
-        if (!enabled || attachedImages.size >= MAX_IMAGE_ATTACHMENTS) return
+        if (!enabled || isPreparingImages) return
         imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
@@ -466,15 +494,19 @@ private fun SpeechInputControls(
             }
             OutlinedButton(
                 onClick = { pickImage() },
-                enabled = enabled && attachedImages.size < MAX_IMAGE_ATTACHMENTS,
+                enabled = enabled && !isPreparingImages,
                 modifier = Modifier.weight(1f),
             ) {
                 Text("Photo")
             }
         }
+        if (isPreparingImages) LoadingRow("Preparing photos…")
         voiceMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
+
+private fun imagePreparationFailureMessage(failedCount: Int): String =
+    "$failedCount photo(s) could not be read."
 
 private fun speechErrorMessage(error: Int): String = when (error) {
     SpeechRecognizer.ERROR_AUDIO -> "Speech input audio error."

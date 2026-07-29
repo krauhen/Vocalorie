@@ -92,6 +92,8 @@ fun MealCaptureScreen(
     var baseCaloriesBurned by remember { mutableIntStateOf(themeSettingsStore.getBaseCaloriesBurned()) }
     var kcalPerStep by remember { mutableDoubleStateOf(themeSettingsStore.getKcalPerStep()) }
     var nutritionGoals by remember { mutableStateOf(themeSettingsStore.getNutritionGoals()) }
+    var mealThemeColors by remember { mutableStateOf(themeSettingsStore.get()) }
+    var activityThemeColors by remember { mutableStateOf(themeSettingsStore.getActivityColors()) }
     var selectedTab by rememberSaveable { mutableStateOf(EntriesTab.MEALS) }
     var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
     var draft by remember { mutableStateOf<EditableMealDraft?>(null) }
@@ -147,10 +149,12 @@ fun MealCaptureScreen(
         baseCaloriesBurned = themeSettingsStore.getBaseCaloriesBurned()
         kcalPerStep = themeSettingsStore.getKcalPerStep()
         nutritionGoals = themeSettingsStore.getNutritionGoals()
+        mealThemeColors = themeSettingsStore.get()
+        activityThemeColors = themeSettingsStore.getActivityColors()
         onActiveThemeColorsChange(
             when (selectedTab) {
-                EntriesTab.MEALS -> themeSettingsStore.get()
-                EntriesTab.ACTIVITIES -> themeSettingsStore.getActivityColors()
+                EntriesTab.MEALS -> mealThemeColors
+                EntriesTab.ACTIVITIES -> activityThemeColors
             },
         )
     }
@@ -302,7 +306,7 @@ fun MealCaptureScreen(
 
     if (showSettings) {
         SettingsScreen(
-            themeColors = themeSettingsStore.get(),
+            themeColors = mealThemeColors,
             onSavePrimaryColor = { themeSettingsStore.savePrimary(it); refreshThemeState() },
             onSaveSecondaryColor = { themeSettingsStore.saveSecondary(it); refreshThemeState() },
             onSaveAccentColor = { themeSettingsStore.saveAccent(it); refreshThemeState() },
@@ -310,12 +314,12 @@ fun MealCaptureScreen(
             onSaveSurfaceColor = { themeSettingsStore.saveSurface(it); refreshThemeState() },
             onSaveSurfaceVariantColor = { themeSettingsStore.saveSurfaceVariant(it); refreshThemeState() },
             onSaveOutlineColor = { themeSettingsStore.saveOutline(it); refreshThemeState() },
-            activityColors = themeSettingsStore.getActivityColors(),
+            activityColors = activityThemeColors,
             onSaveActivityPrimaryColor = { themeSettingsStore.saveActivityPrimary(it); refreshThemeState() },
             onSaveActivitySecondaryColor = { themeSettingsStore.saveActivitySecondary(it); refreshThemeState() },
             onSaveActivityAccentColor = { themeSettingsStore.saveActivityAccent(it); refreshThemeState() },
             onSaveActivityOutlineColor = { themeSettingsStore.saveActivityOutline(it); refreshThemeState() },
-            baseCaloriesBurned = themeSettingsStore.getBaseCaloriesBurned(),
+            baseCaloriesBurned = baseCaloriesBurned,
             onSaveBaseCaloriesBurned = { input ->
                 settingsMessage = null
                 val caloriesBurned = input.trim().toIntOrNull()
@@ -328,7 +332,7 @@ fun MealCaptureScreen(
                     refreshThemeState()
                 }
             },
-            kcalPerStep = themeSettingsStore.getKcalPerStep(),
+            kcalPerStep = kcalPerStep,
             onSaveKcalPerStep = { input ->
                 settingsMessage = null
                 val per1000 = input.trim().replace(',', '.').toDoubleOrNull()
@@ -471,7 +475,7 @@ fun MealCaptureScreen(
             goals = nutritionGoals,
             modifier = modifier,
             voiceButton = {
-                val searchResults = searchSavedMeals(savedMeals, searchQuery)
+                val searchResults = remember(savedMeals, searchQuery) { searchSavedMeals(savedMeals, searchQuery) }
                 VoiceInputOverlay(
                     query = query,
                     onQueryChange = { query = it },

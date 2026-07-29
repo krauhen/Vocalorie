@@ -1,23 +1,16 @@
 package com.example.vocalorie.ui
 
-import android.content.SharedPreferences
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
 import com.example.vocalorie.settings.ThemeColors
-import com.example.vocalorie.settings.ThemeSettingsStore
 
 private fun onColorFor(color: Color): Color =
     if (color.luminance() > 0.5f) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
@@ -206,17 +199,9 @@ fun macroColors(isDark: Boolean = isSystemInDarkTheme()): MacroColors =
 
 @Composable
 fun VocalorieTheme(themeColors: ThemeColors, content: @Composable () -> Unit) {
-    val context = LocalContext.current
-    val store = remember { ThemeSettingsStore(context) }
-    var refreshSignal by remember { mutableIntStateOf(0) }
-
-    DisposableEffect(store) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> refreshSignal += 1 }
-        store.registerListener(listener)
-        onDispose { store.unregisterListener(listener) }
-    }
-
+    // `themeColors` is the only preference-derived input to `buildColorScheme`, and it is already
+    // hoisted state that every save path updates, so no preference listener is needed here.
     val isDark = isSystemInDarkTheme()
-    val colorScheme = remember(themeColors, isDark, refreshSignal) { buildColorScheme(themeColors, isDark) }
+    val colorScheme = remember(themeColors, isDark) { buildColorScheme(themeColors, isDark) }
     MaterialTheme(colorScheme = colorScheme, content = content)
 }

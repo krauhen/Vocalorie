@@ -10,18 +10,18 @@
 
 ## 2. Felt performance (no architectural dependency)
 
-- [ ] 2.1 Move `toGalleryImageAttachment` off the main thread at `ui/voice/VoiceInputOverlay.kt:328` and add a preparing-attachments progress state; report a per-image failure without dropping the other selections
-- [ ] 2.2 Hoist `Instant.now()` out of `computeMealStats`'s call at `ui/entries/stats/MealStatsOverview.kt:69` into a parameter and wrap the call in `remember(meals, range, now, zone)`
-- [ ] 2.3 Precompute a remembered list of (date, score, colour) for the heatmap so `nutritionScore()` is not called per cell inside composition; hoist the per-cell click lambda (`MealStatsOverview.kt:210-252`)
-- [ ] 2.4 Introduce an `EditableNutrition` value type and replace `MealEditor.kt:404`'s `(String × 8) -> Unit` callback at all 8 call sites, with tests pinning that the fields cannot transpose
-- [ ] 2.5 Change `EditableFoodItemCard`'s callbacks to `(Int, EditableFoodItem) -> Unit` so item rows skip instead of capturing the changing `draft` (`MealEditor.kt:61-117, 131-139`)
-- [ ] 2.6 Hoist the four compile-time-constant `portionScaleFactor` calls at `MealEditor.kt:195-199` to `val`s
-- [ ] 2.7 Wrap `searchSavedMeals` at `ui/MealCaptureScreen.kt:474` in `remember(savedMeals, searchQuery)`
-- [ ] 2.8 `remember` the four `themeSettingsStore` reads currently passed as unremembered `SettingsScreen(...)` arguments (`MealCaptureScreen.kt:305, 313, 318, 331`)
-- [ ] 2.9 Move `DateTimeFormatter.ofPattern` at `MealStatsOverview.kt:205` to a file-level constant, following `ui/components/CommonUi.kt:50-67`
-- [ ] 2.10 Delete the `refreshSignal` listener path at `ui/VocalorieTheme.kt:211-220` after confirming live theme edits still propagate
-- [ ] 2.11 Verify: `compileDebugKotlin` + `testDebugUnitTest` green with `MealStatsCalculatorTest` (24) and `MealTimeWindowsTest` (24) unmodified; on-device — attaching four photos does not freeze, ten day-nav and ten heatmap taps do not stutter, typing in a 10-item meal is smooth
-- [ ] 2.12 Re-walk the baseline path on the S23 and diff against the captured frames. Watch specifically: calorie-state row tinting, macro colours, food-type icon placement, heatmap gradient and neutral no-data colour, and the Meals/Activities palette swap. Only the attachment progress indication may differ
+- [x] 2.1 Move `toGalleryImageAttachment` off the main thread at `ui/voice/VoiceInputOverlay.kt:328` and add a preparing-attachments progress state; report a per-image failure without dropping the other selections
+- [x] 2.2 Hoist `Instant.now()` out of `computeMealStats`'s call at `ui/entries/stats/MealStatsOverview.kt:69` into a parameter and wrap the call in `remember(meals, range, now, zone)`
+- [x] 2.3 Precompute a remembered list of (date, score, colour) for the heatmap so `nutritionScore()` is not called per cell inside composition; hoist the per-cell click lambda (`MealStatsOverview.kt:210-252`)
+- [x] 2.4 Introduce an `EditableNutrition` value type and replace `MealEditor.kt:404`'s `(String × 8) -> Unit` callback at all 8 call sites, with tests pinning that the fields cannot transpose
+- [x] 2.5 Change `EditableFoodItemCard`'s callbacks to `(Int, EditableFoodItem) -> Unit` so item rows skip instead of capturing the changing `draft` (`MealEditor.kt:61-117, 131-139`)
+- [x] 2.6 Hoist the four compile-time-constant `portionScaleFactor` calls at `MealEditor.kt:195-199` to `val`s
+- [x] 2.7 Wrap `searchSavedMeals` at `ui/MealCaptureScreen.kt:474` in `remember(savedMeals, searchQuery)`
+- [x] 2.8 `remember` the four `themeSettingsStore` reads currently passed as unremembered `SettingsScreen(...)` arguments (`MealCaptureScreen.kt:305, 313, 318, 331`)
+- [x] 2.9 Move `DateTimeFormatter.ofPattern` at `MealStatsOverview.kt:205` to a file-level constant, following `ui/components/CommonUi.kt:50-67`
+- [x] 2.10 Delete the `refreshSignal` listener path at `ui/VocalorieTheme.kt:211-220` after confirming live theme edits still propagate
+- [x] 2.11 Verify: `compileDebugKotlin` + `testDebugUnitTest` green with `MealStatsCalculatorTest` (24) and `MealTimeWindowsTest` (24) unmodified; on-device — attaching four photos does not freeze, ten day-nav and ten heatmap taps do not stutter, typing in a 10-item meal is smooth
+- [x] 2.12 Re-walk the baseline path on the S23 and diff against the captured frames. Watch specifically: calorie-state row tinting, macro colours, food-type icon placement, heatmap gradient and neutral no-data colour, and the Meals/Activities palette swap. Only the attachment progress indication may differ
 
 ## 3. AI path: client lifecycle, timeouts, fail-loud, fetch safety
 

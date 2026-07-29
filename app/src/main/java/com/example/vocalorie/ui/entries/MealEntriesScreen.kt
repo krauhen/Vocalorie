@@ -233,6 +233,7 @@ fun MealEntriesScreen(
                     activities = activities,
                     goals = goals,
                     selectedRange = selectedStatsRange,
+                    now = now,
                     onRangeChange = { range -> selectedStatsRangeName = range.name },
                     zone = zone,
                     selectedDate = LocalDate.ofInstant(now, zone).minusDays(selectedDayOffset.toLong()),
