@@ -3,6 +3,7 @@ package com.example.vocalorie.data
 import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.SavedActivity
+import com.example.vocalorie.model.toEditableNumberText
 
 fun EditableActivityDraft.toEntity(createdAtEpochMillis: Long = System.currentTimeMillis()): ActivityEntity =
     ActivityEntity(
@@ -33,7 +34,7 @@ fun SavedActivity.toEditableDraft(): EditableActivityDraft = EditableActivityDra
     type = type,
     title = title,
     description = description,
-    caloriesBurnedKcal = caloriesBurnedKcal.toEditText(),
+    caloriesBurnedKcal = caloriesBurnedKcal.toEditableNumberText(),
     durationMinutes = durationMinutes.toString(),
     steps = stepsCount?.toString() ?: "",
     createdAtEpochMillis = createdAtEpochMillis,
@@ -45,5 +46,3 @@ private fun String.toNullableInt(): Int? = trim().takeIf { it.isNotEmpty() }?.to
 
 /** An unrecognized persisted type name is neutral, not a run. */
 private fun String.toActivityType(): ActivityType = runCatching { ActivityType.valueOf(this) }.getOrDefault(ActivityType.OTHER)
-
-private fun Double.toEditText(): String = if (this % 1.0 == 0.0) toInt().toString() else toString()

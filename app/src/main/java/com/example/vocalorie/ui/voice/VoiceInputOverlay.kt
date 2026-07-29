@@ -44,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.ui.components.EditableMealEditor
@@ -313,7 +317,11 @@ private fun SpeechInputControls(
     resetSignal: Int,
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
+    // The queued-restart effect is keyed on the request counter, so it would otherwise re-check a
+    // stale `enabled` captured when the restart was queued.
+    val latestEnabled = rememberUpdatedState(enabled)
     var isListening by remember { mutableStateOf(false) }
     var keepListening by remember { mutableStateOf(false) }
     var isPreparingImages by remember { mutableStateOf(false) }
@@ -468,6 +476,21 @@ private fun SpeechInputControls(
         imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
+    // Backgrounding must not leave the microphone open: the sheet is off-screen, so there is no Stop
+    // button to reach for. `stopListening()` also clears `keepListening`, which retires any queued
+    // restart. The recognizer itself is still destroyed by the `DisposableEffect` above.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP &&
+                VoiceListeningSessionPolicy.shouldReleaseOnBackground(isListening, keepListening)
+            ) {
+                stopListening()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(startAfterPermission) {
         if (startAfterPermission) {
             startAfterPermission = false
@@ -477,9 +500,12 @@ private fun SpeechInputControls(
     }
 
     LaunchedEffect(restartRequest) {
-        if (restartRequest > 0 && keepListening && enabled) {
+        if (restartRequest > 0 && VoiceListeningSessionPolicy.shouldStartQueuedRestart(keepListening, latestEnabled.value)) {
             delay(300)
-            startListening()
+            // Asked again after the delay: a Stop during the window must not be overridden.
+            if (VoiceListeningSessionPolicy.shouldStartQueuedRestart(keepListening, latestEnabled.value)) {
+                startListening()
+            }
         }
     }
 

@@ -20,7 +20,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,7 +32,7 @@ import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.SELECTABLE_ACTIVITY_TYPES
 import com.example.vocalorie.model.displayName
-import com.example.vocalorie.model.activityTypeIcon
+import com.example.vocalorie.ui.activityTypeIcon
 import com.example.vocalorie.model.stepsBurnKcal
 import com.example.vocalorie.ui.entries.formatDuration
 
@@ -228,39 +227,6 @@ private fun ActivityTypePicker(
             }
         }
     }
-}
-
-@Composable
-private fun EntryTimestampField(epochMillis: Long, enabled: Boolean, onChange: (Long) -> Unit, onValidationChange: (Boolean) -> Unit) {
-    var value by rememberSaveable { mutableStateOf(formatEditableTimestamp(epochMillis)) }
-    var isInvalid by remember(epochMillis) { mutableStateOf(false) }
-
-    LaunchedEffect(epochMillis) {
-        if (shouldResyncEditableTimestamp(value, epochMillis)) {
-            value = formatEditableTimestamp(epochMillis)
-        }
-        val isValid = parseEditableTimestamp(value) != null
-        isInvalid = !isValid
-        onValidationChange(isValid)
-    }
-
-    OutlinedTextField(
-        value = value,
-        onValueChange = { updated ->
-            value = updated
-            val parsed = parseEditableTimestamp(updated)
-            val isValid = parsed != null
-            isInvalid = !isValid
-            onValidationChange(isValid)
-            if (parsed != null) onChange(parsed)
-        },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Added date/time") },
-        enabled = enabled,
-        isError = isInvalid,
-        supportingText = { Text(if (isInvalid) "Enter a real date/time as $EDITABLE_TIMESTAMP_FORMAT" else "Format: $EDITABLE_TIMESTAMP_FORMAT") },
-        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Text),
-    )
 }
 
 @Composable

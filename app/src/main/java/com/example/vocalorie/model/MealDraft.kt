@@ -53,14 +53,14 @@ data class SavedMeal(
 )
 
 fun EditableMealDraft.withTotalsSummedFromItems(): EditableMealDraft = copy(
-    amountGml = items.sumOfEditable { it.amountGml }.toEditText(),
-    caloriesKcal = items.sumOfEditable { it.caloriesKcal }.toEditText(),
-    proteinG = items.sumOfEditable { it.proteinG }.toEditText(),
-    carbsG = items.sumOfEditable { it.carbsG }.toEditText(),
-    fatG = items.sumOfEditable { it.fatG }.toEditText(),
-    saturatedFatG = items.sumOfEditable { it.saturatedFatG }.toEditText(),
-    sugarG = items.sumOfEditable { it.sugarG }.toEditText(),
-    saltG = items.sumOfEditable { it.saltG }.toEditText(),
+    amountGml = items.sumOfEditable { it.amountGml }.toEditableNumberText(),
+    caloriesKcal = items.sumOfEditable { it.caloriesKcal }.toEditableNumberText(),
+    proteinG = items.sumOfEditable { it.proteinG }.toEditableNumberText(),
+    carbsG = items.sumOfEditable { it.carbsG }.toEditableNumberText(),
+    fatG = items.sumOfEditable { it.fatG }.toEditableNumberText(),
+    saturatedFatG = items.sumOfEditable { it.saturatedFatG }.toEditableNumberText(),
+    sugarG = items.sumOfEditable { it.sugarG }.toEditableNumberText(),
+    saltG = items.sumOfEditable { it.saltG }.toEditableNumberText(),
 )
 
 fun EditableMealDraft.withItemsScaledByPortion(recipeMakes: String, ate: String): EditableMealDraft? {
@@ -103,7 +103,7 @@ private fun List<EditableFoodItem>.sumOfEditable(selector: (EditableFoodItem) ->
 
 private fun String.scaledEditableNumber(factor: BigDecimal): String {
     val number = toEditableBigDecimalOrNull() ?: return this
-    return number.multiply(factor).toEditText()
+    return number.multiply(factor).toEditableNumberText()
 }
 
 private fun String.toEditableBigDecimalOrZero(): BigDecimal = trim()
@@ -119,5 +119,3 @@ private fun String.toEditableBigDecimalOrNull(): BigDecimal? = trim()
     .replace(',', '.')
     .takeIf { it.isNotEmpty() }
     ?.let { value -> runCatching { BigDecimal(value) }.getOrNull() }
-
-private fun BigDecimal.toEditText(): String = stripTrailingZeros().toPlainString()

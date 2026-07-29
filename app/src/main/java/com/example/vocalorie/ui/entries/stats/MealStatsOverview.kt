@@ -33,6 +33,11 @@ import androidx.compose.ui.unit.sp
 import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.ui.HeatmapDeepGreen
+import com.example.vocalorie.ui.HeatmapDeepRed
+import com.example.vocalorie.ui.HeatmapGreen
+import com.example.vocalorie.ui.HeatmapOrange
+import com.example.vocalorie.ui.HeatmapYellow
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -44,13 +49,8 @@ private val heatmapDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPatter
 
 private val HeatmapCellShape = RoundedCornerShape(2.dp)
 
-private val HeatmapDeepGreen = Color(0xFF2E7D32)
-private val HeatmapGreen = Color(0xFF43A047)
-private val HeatmapYellow = Color(0xFFFDD835)
-private val HeatmapOrange = Color(0xFFF57C00)
-private val HeatmapDeepRed = Color(0xFFB71C1C)
-
 // Score scale terminates at green (best): low scores red, mid yellow, high green.
+// The five stops live in `ui/VocalorieTheme.kt` beside the other fixed semantic colors.
 internal fun scoreToColor(score: Double): Color = when {
     score <= 20.0 -> lerp(HeatmapDeepRed, HeatmapOrange, (score / 20.0).toFloat())
     score <= 40.0 -> lerp(HeatmapOrange, HeatmapYellow, ((score - 20.0) / 20.0).toFloat())

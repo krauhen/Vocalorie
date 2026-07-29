@@ -197,6 +197,18 @@ private val DarkMacroColors = MacroColors(
 fun macroColors(isDark: Boolean = isSystemInDarkTheme()): MacroColors =
     if (isDark) DarkMacroColors else LightMacroColors
 
+/*
+ * Fixed semantic colors for the day-score heatmap, kept here beside [MacroColors] rather than in the
+ * stats view: like the macro colors they are deliberately independent of the user's theme palette so
+ * a score reads the same whatever the palette is. The scale terminates at green (best) — see
+ * `scoreToColor` in `ui/entries/stats/MealStatsOverview.kt`, which interpolates between them.
+ */
+internal val HeatmapDeepGreen = Color(0xFF2E7D32)
+internal val HeatmapGreen = Color(0xFF43A047)
+internal val HeatmapYellow = Color(0xFFFDD835)
+internal val HeatmapOrange = Color(0xFFF57C00)
+internal val HeatmapDeepRed = Color(0xFFB71C1C)
+
 @Composable
 fun VocalorieTheme(themeColors: ThemeColors, content: @Composable () -> Unit) {
     // `themeColors` is the only preference-derived input to `buildColorScheme`, and it is already

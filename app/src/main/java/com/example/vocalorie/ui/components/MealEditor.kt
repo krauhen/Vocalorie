@@ -3,6 +3,7 @@ package com.example.vocalorie.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -15,7 +16,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,13 +38,19 @@ import com.example.vocalorie.model.withItemsScaledByPortionFromBaseline
 import com.example.vocalorie.model.withNutrition
 import com.example.vocalorie.model.withTotalsSummedFromItems
 import java.math.BigDecimal
-import kotlin.math.roundToInt
 
 /** Quick-portion factors take only literal arguments, so they are constant for the whole app. */
 private val QUARTER_PORTION_FACTOR = portionScaleFactor(recipeMakes = "4", ate = "1")
 private val HALF_PORTION_FACTOR = portionScaleFactor(recipeMakes = "2", ate = "1")
 private val THREE_QUARTER_PORTION_FACTOR = portionScaleFactor(recipeMakes = "4", ate = "3")
 private val ALL_PORTION_FACTOR = portionScaleFactor(recipeMakes = "1", ate = "1")
+
+/**
+ * Four chips share one row, so the default 24.dp horizontal button padding left too little room
+ * for a three-character label and "All" rendered one character per line. The chips are
+ * weight-sized, so trimming the inner padding gives the label width back without resizing them.
+ */
+private val PORTION_CHIP_PADDING = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
 
 @Composable
 fun EditableMealEditor(
@@ -224,47 +230,14 @@ private fun PortionScalingControls(
             }
             Button(onClick = { applyScale(recipeMakes, iAte) }, enabled = canApplyScale(enteredFactor), modifier = Modifier.fillMaxWidth()) { Text("Apply portion") }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { applyScale("4", "1") }, enabled = canApplyScale(QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("¼") }
-                OutlinedButton(onClick = { applyScale("2", "1") }, enabled = canApplyScale(HALF_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("½") }
-                OutlinedButton(onClick = { applyScale("4", "3") }, enabled = canApplyScale(THREE_QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("¾") }
-                OutlinedButton(onClick = { applyScale("1", "1") }, enabled = canApplyScale(ALL_PORTION_FACTOR), modifier = Modifier.weight(1f)) { Text("All") }
+                OutlinedButton(onClick = { applyScale("4", "1") }, enabled = canApplyScale(QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f), contentPadding = PORTION_CHIP_PADDING) { Text("¼", maxLines = 1, softWrap = false) }
+                OutlinedButton(onClick = { applyScale("2", "1") }, enabled = canApplyScale(HALF_PORTION_FACTOR), modifier = Modifier.weight(1f), contentPadding = PORTION_CHIP_PADDING) { Text("½", maxLines = 1, softWrap = false) }
+                OutlinedButton(onClick = { applyScale("4", "3") }, enabled = canApplyScale(THREE_QUARTER_PORTION_FACTOR), modifier = Modifier.weight(1f), contentPadding = PORTION_CHIP_PADDING) { Text("¾", maxLines = 1, softWrap = false) }
+                OutlinedButton(onClick = { applyScale("1", "1") }, enabled = canApplyScale(ALL_PORTION_FACTOR), modifier = Modifier.weight(1f), contentPadding = PORTION_CHIP_PADDING) { Text("All", maxLines = 1, softWrap = false) }
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold) }
         }
     }
-}
-
-@Composable
-private fun EntryTimestampField(epochMillis: Long, enabled: Boolean, onChange: (Long) -> Unit, onValidationChange: (Boolean) -> Unit) {
-    var value by rememberSaveable { mutableStateOf(formatEditableTimestamp(epochMillis)) }
-    var isInvalid by remember(epochMillis) { mutableStateOf(false) }
-
-    LaunchedEffect(epochMillis) {
-        if (shouldResyncEditableTimestamp(value, epochMillis)) {
-            value = formatEditableTimestamp(epochMillis)
-        }
-        val isValid = parseEditableTimestamp(value) != null
-        isInvalid = !isValid
-        onValidationChange(isValid)
-    }
-
-    OutlinedTextField(
-        value = value,
-        onValueChange = { updated ->
-            value = updated
-            val parsed = parseEditableTimestamp(updated)
-            val isValid = parsed != null
-            isInvalid = !isValid
-            onValidationChange(isValid)
-            if (parsed != null) onChange(parsed)
-        },
-        modifier = Modifier.fillMaxWidth(),
-        label = { Text("Added date/time") },
-        enabled = enabled,
-        isError = isInvalid,
-        supportingText = { Text(if (isInvalid) "Enter a real date/time as $EDITABLE_TIMESTAMP_FORMAT" else "Format: $EDITABLE_TIMESTAMP_FORMAT") },
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-    )
 }
 
 @Composable
@@ -400,7 +373,7 @@ private fun NutritionFields(
                 value = nutrition.fat,
                 onValueChange = { onChange(nutrition.copy(fat = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Fat g") },
+                label = { Text("Fat g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -409,7 +382,7 @@ private fun NutritionFields(
                 value = nutrition.saturatedFat,
                 onValueChange = { onChange(nutrition.copy(saturatedFat = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Saturates g") },
+                label = { Text("Saturates g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -420,7 +393,7 @@ private fun NutritionFields(
                 value = nutrition.carbs,
                 onValueChange = { onChange(nutrition.copy(carbs = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Carbohydrate g") },
+                label = { Text("Carbohydrate g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -429,7 +402,7 @@ private fun NutritionFields(
                 value = nutrition.sugar,
                 onValueChange = { onChange(nutrition.copy(sugar = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Sugars g") },
+                label = { Text("Sugars g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -440,7 +413,7 @@ private fun NutritionFields(
                 value = nutrition.protein,
                 onValueChange = { onChange(nutrition.copy(protein = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Protein g") },
+                label = { Text("Protein g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -449,7 +422,7 @@ private fun NutritionFields(
                 value = nutrition.salt,
                 onValueChange = { onChange(nutrition.copy(salt = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Salt g") },
+                label = { Text("Salt g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
@@ -517,7 +490,3 @@ private fun NutritionRow(label: String, value: String, indent: Boolean = false) 
         )
     }
 }
-
-private fun Double?.formatEnergy(): String = this?.let { kcal ->
-    "${(kcal * 4.184).roundToInt()} kJ / ${kcal.formatNullable()} kcal"
-} ?: "unknown"

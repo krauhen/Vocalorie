@@ -46,6 +46,15 @@ enum class MealStatsWindowMode {
     SINCE_MIDNIGHT,
     LAST_24_HOURS,
     CUSTOM,
+    ;
+
+    /** Single source for the window labels, which were previously spelled out at two call sites. */
+    val label: String
+        get() = when (this) {
+            SINCE_MIDNIGHT -> "Since 00:00"
+            LAST_24_HOURS -> "Last 24h"
+            CUSTOM -> "Custom"
+        }
 }
 
 data class MealStatsWindowSelection(
@@ -66,15 +75,6 @@ data class MealCaloriesBucket(
 
 fun selectedDayWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindow {
     val date = LocalDate.ofInstant(now, zone).minusDays(dayOffset.toLong())
-
-    if (dayOffset == 0) {
-        return MealTimeWindow(
-            label = dateLabel(dayOffset, date),
-            startInclusive = date.atStartOfDay(zone).toInstant(),
-            end = date.plusDays(1).atStartOfDay(zone).toInstant(),
-            endInclusive = false,
-        )
-    }
 
     return MealTimeWindow(
         label = dateLabel(dayOffset, date),

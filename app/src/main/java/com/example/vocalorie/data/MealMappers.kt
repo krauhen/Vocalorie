@@ -8,6 +8,7 @@ import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.model.SavedMeal
+import com.example.vocalorie.model.toEditableNumberTextOrEmpty
 import com.example.vocalorie.model.withTotalsSummedFromItems
 import com.example.vocalorie.model.withItemsScaledByFactor
 import kotlinx.serialization.builtins.ListSerializer
@@ -94,14 +95,14 @@ fun SavedMeal.toEditableDraft(): EditableMealDraft = EditableMealDraft(
     title = title.resolveMealTitle(query, items.firstOrNull()?.name),
     query = query,
     items = items.map { it.toEditableFoodItem() },
-    caloriesKcal = totals.caloriesKcal.toEditText(),
-    amountGml = totals.amountGml.toEditText(),
-    proteinG = totals.proteinG.toEditText(),
-    carbsG = totals.carbsG.toEditText(),
-    fatG = totals.fatG.toEditText(),
-    saturatedFatG = totals.saturatedFatG.toEditText(),
-    sugarG = totals.sugarG.toEditText(),
-    saltG = totals.saltG.toEditText(),
+    caloriesKcal = totals.caloriesKcal.toEditableNumberTextOrEmpty(),
+    amountGml = totals.amountGml.toEditableNumberTextOrEmpty(),
+    proteinG = totals.proteinG.toEditableNumberTextOrEmpty(),
+    carbsG = totals.carbsG.toEditableNumberTextOrEmpty(),
+    fatG = totals.fatG.toEditableNumberTextOrEmpty(),
+    saturatedFatG = totals.saturatedFatG.toEditableNumberTextOrEmpty(),
+    sugarG = totals.sugarG.toEditableNumberTextOrEmpty(),
+    saltG = totals.saltG.toEditableNumberTextOrEmpty(),
     assumptionsText = assumptions.joinToString("\n"),
     warningsText = warnings.joinToString("\n"),
     confidence = confidence,
@@ -229,13 +230,13 @@ fun EditableMealDraft.withItemsResolvedFromCache(cachedItems: List<CachedItemEnt
 private fun CachedItemEntity.scaledEditableFoodItem(item: EditableFoodItem, requestedAmountGml: Double): EditableFoodItem {
     val factor = requestedAmountGml / 100.0
     return item.copy(
-        caloriesKcal = caloriesKcalPer100?.times(factor).toEditText(),
-        proteinG = proteinGPer100?.times(factor).toEditText(),
-        carbsG = carbsGPer100?.times(factor).toEditText(),
-        fatG = fatGPer100?.times(factor).toEditText(),
-        saturatedFatG = saturatedFatGPer100?.times(factor).toEditText(),
-        sugarG = sugarGPer100?.times(factor).toEditText(),
-        saltG = saltGPer100?.times(factor).toEditText(),
+        caloriesKcal = caloriesKcalPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        proteinG = proteinGPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        carbsG = carbsGPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        fatG = fatGPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        saturatedFatG = saturatedFatGPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        sugarG = sugarGPer100?.times(factor).toEditableNumberTextOrEmpty(),
+        saltG = saltGPer100?.times(factor).toEditableNumberTextOrEmpty(),
         source = source.toSourceUrlOrBlank(),
         reasoning = reasoning,
     )
@@ -254,14 +255,14 @@ fun searchSavedMeals(meals: List<SavedMeal>, searchQuery: String, limit: Int = 5
 private fun FoodItemEstimate.toEditableFoodItem(): EditableFoodItem = EditableFoodItem(
     name = name,
     quantity = quantity,
-    amountGml = amountGml.toEditText(),
-    caloriesKcal = caloriesKcal.toEditText(),
-    proteinG = proteinG.toEditText(),
-    carbsG = carbsG.toEditText(),
-    fatG = fatG.toEditText(),
-    saturatedFatG = saturatedFatG.toEditText(),
-    sugarG = sugarG.toEditText(),
-    saltG = saltG.toEditText(),
+    amountGml = amountGml.toEditableNumberTextOrEmpty(),
+    caloriesKcal = caloriesKcal.toEditableNumberTextOrEmpty(),
+    proteinG = proteinG.toEditableNumberTextOrEmpty(),
+    carbsG = carbsG.toEditableNumberTextOrEmpty(),
+    fatG = fatG.toEditableNumberTextOrEmpty(),
+    saturatedFatG = saturatedFatG.toEditableNumberTextOrEmpty(),
+    sugarG = sugarG.toEditableNumberTextOrEmpty(),
+    saltG = saltG.toEditableNumberTextOrEmpty(),
     source = source.toSourceUrlOrBlank(),
     reasoning = reasoning,
 )
@@ -313,13 +314,6 @@ private fun List<FoodItemEstimate>.toSummedNutritionTotals(): NutritionTotals = 
     sugarG = sumOf { it.sugarG ?: 0.0 },
     saltG = sumOf { it.saltG ?: 0.0 },
 )
-
-private fun Double?.toEditText(): String = this?.let { value ->
-    if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
-}.orEmpty()
-
-private fun String.toShortMealTitle(items: List<FoodItemEstimate>): String =
-    toShortMealTitle(items.firstOrNull()?.name)
 
 private fun String.toShortMealTitle(firstItemName: String?): String {
     val trimmedItemName = firstItemName?.trim().orEmpty()
@@ -403,11 +397,6 @@ private fun String.isNumericToken(): Boolean = matches(numericTokenPattern)
 
 private fun String.matchesSearchToken(searchToken: String): Boolean =
     this == searchToken || startsWith(searchToken) || searchToken.startsWith(this)
-
-private fun List<String>.firstConcreteSourceUrlOrBlank(): String = asSequence()
-    .map { it.toConcreteSourceUrlOrBlank() }
-    .firstOrNull { it.isNotBlank() }
-    .orEmpty()
 
 private fun String.toNullableDouble(): Double? = trim()
     .replace(',', '.')

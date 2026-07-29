@@ -87,18 +87,18 @@
 
 ## 7. Deduplication and remaining fixes
 
-- [ ] 7.1 Move `EntryTimestampField` to `ui/components/CommonUi.kt` (byte-identical between `MealEditor.kt:239-269` and `ActivityEditor.kt:232-262`) and fix the shared bug where `LaunchedEffect(epochMillis)` clobbers mid-edit text that transiently fails to parse; pin with a test
-- [ ] 7.2 Replace the three `toEditText()`/parser implementations with one using `BigDecimal.stripTrailingZeros().toPlainString()` semantics. Pin with tests **before** adopting it, using the values observed on the S23: `816.6500000000000004` → `"816.65"`, `5.7000000000000004` → `"5.7"`, `3.450000000000004` → `"3.45"`, `1.7500000000000002` → `"1.75"`, and `0.0001` → `"0.0001"` not `"1.0E-4"`
-- [ ] 7.3 Move `Double?.formatEnergy()` to `CommonUi.kt` (duplicated in `MealEditor.kt:548` and `MealEntriesScreen.kt:916`)
-- [ ] 7.4 Dedupe the "Since 00:00"/"Last 24h"/"Custom" copy triplicated at `MealEntriesScreen.kt:369/373/377` and `585/586/587`
-- [ ] 7.5 Move the Compose dependencies out of `model/ActivityModels.kt` (`Color`, `ImageVector`, `dp`), cache the vectors instead of rebuilding one per `activityTypeIcon()` call, and drive colour by `tint` rather than the hardcoded dark-navy fill
-- [ ] 7.6 Add an `ON_STOP` lifecycle observer that releases the microphone when the app is backgrounded, and re-check the guard after the 300 ms delay at `ui/voice/VoiceInputOverlay.kt:444-449` so an explicit stop is not overridden
-- [ ] 7.7 Remove the identified dead code: `NutritionAgentRequest`, `toShortMealTitle(String)`, `firstConcreteSourceUrlOrBlank`, `hasSavedKey`, the `canGoNewer`/`isFuture`/`toolName` dead parameters, the dead `if (dayOffset == 0)` branch at `MealTimeWindows.kt:67-85`, the unused import at `MealEntriesScreen.kt:93`
-- [ ] 7.8 Move the five hardcoded heatmap hex colours from `MealStatsOverview.kt:42-46` next to `MacroColors` in `ui/VocalorieTheme.kt`
-- [ ] 7.9 Adopt the existing `readColor`/`saveColor` helpers in the six `ThemeSettingsStore` setters that still inline `prefs.edit()`, and split the nutrition settings out of the theme store
+- [x] 7.1 Move `EntryTimestampField` to `ui/components/CommonUi.kt` (byte-identical between `MealEditor.kt:239-269` and `ActivityEditor.kt:232-262`) and fix the shared bug where `LaunchedEffect(epochMillis)` clobbers mid-edit text that transiently fails to parse; pin with a test
+- [x] 7.2 Replace the three `toEditText()`/parser implementations with one using `BigDecimal.stripTrailingZeros().toPlainString()` semantics. Pin with tests **before** adopting it, using the values observed on the S23: `816.6500000000000004` → `"816.65"`, `5.7000000000000004` → `"5.7"`, `3.450000000000004` → `"3.45"`, `1.7500000000000002` → `"1.75"`, and `0.0001` → `"0.0001"` not `"1.0E-4"`
+- [x] 7.3 Move `Double?.formatEnergy()` to `CommonUi.kt` (duplicated in `MealEditor.kt:548` and `MealEntriesScreen.kt:916`)
+- [x] 7.4 Dedupe the "Since 00:00"/"Last 24h"/"Custom" copy triplicated at `MealEntriesScreen.kt:369/373/377` and `585/586/587`
+- [x] 7.5 Move the Compose dependencies out of `model/ActivityModels.kt` (`Color`, `ImageVector`, `dp`), cache the vectors instead of rebuilding one per `activityTypeIcon()` call, and drive colour by `tint` rather than the hardcoded dark-navy fill
+- [x] 7.6 Add an `ON_STOP` lifecycle observer that releases the microphone when the app is backgrounded, and re-check the guard after the 300 ms delay at `ui/voice/VoiceInputOverlay.kt:444-449` so an explicit stop is not overridden
+- [x] 7.7 Remove the identified dead code: `NutritionAgentRequest`, `toShortMealTitle(String)`, `firstConcreteSourceUrlOrBlank`, `hasSavedKey`, the `canGoNewer`/`isFuture`/`toolName` dead parameters, the dead `if (dayOffset == 0)` branch at `MealTimeWindows.kt:67-85`, the unused import at `MealEntriesScreen.kt:93`
+- [x] 7.8 Move the five hardcoded heatmap hex colours from `MealStatsOverview.kt:42-46` next to `MacroColors` in `ui/VocalorieTheme.kt`
+- [x] 7.9 Adopt the existing `readColor`/`saveColor` helpers in the six `ThemeSettingsStore` setters that still inline `prefs.edit()`, and split the nutrition settings out of the theme store
 - [ ] 7.10 Verify: typing a partial timestamp is no longer clobbered; backgrounding mid-listen releases the microphone; tapping stop does not re-open it 300 ms later; `TimestampFormattingTest` and both label tests green
-- [ ] 7.11 *(optional polish, separable)* Fix the portion-scaling quick-select chips so the "All" chip fits its label on one line — it currently renders one character per line because four chips are squeezed into the row (`ui/components/MealEditor.kt`, `PortionScalingControls`)
-- [ ] 7.12 *(optional polish, separable)* Stop the paired item-card nutrition labels wrapping mid-word — "Carbohydrate g" currently breaks as "Carbohydrat"/"e g" (`ui/components/MealEditor.kt`, `NutritionFields`)
+- [x] 7.11 *(optional polish, separable)* Fix the portion-scaling quick-select chips so the "All" chip fits its label on one line — it currently renders one character per line because four chips are squeezed into the row (`ui/components/MealEditor.kt`, `PortionScalingControls`)
+- [x] 7.12 *(optional polish, separable)* Stop the paired item-card nutrition labels wrapping mid-word — "Carbohydrate g" currently breaks as "Carbohydrat"/"e g" (`ui/components/MealEditor.kt`, `NutritionFields`)
 - [ ] 7.13 Re-walk the baseline path on the S23 and diff against the captured frames. Confirm the numeric fields now read cleanly, and that 7.11–7.12 are the only other visual differences from the baseline
 
 ## 8. Record the standards

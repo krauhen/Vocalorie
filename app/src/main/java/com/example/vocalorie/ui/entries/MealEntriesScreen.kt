@@ -83,14 +83,14 @@ import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.displayName
-import com.example.vocalorie.model.activityTypeIcon
+import com.example.vocalorie.ui.activityTypeIcon
 import com.example.vocalorie.ui.components.HeaderDropdownAction
 import com.example.vocalorie.ui.components.NutritionLabelRows
 import com.example.vocalorie.ui.components.formatDate
+import com.example.vocalorie.ui.components.formatEnergy
 import com.example.vocalorie.ui.components.formatNullable
 import com.example.vocalorie.ui.components.activityCalorieStateStyle
 import com.example.vocalorie.ui.components.mealCalorieStateStyle
-import com.example.vocalorie.ui.components.ReadOnlyActivitySummary
 import com.example.vocalorie.ui.macroColors
 import com.example.vocalorie.ui.entries.stats.DailyNutritionTotals
 import com.example.vocalorie.ui.entries.stats.MealStatsOverview
@@ -201,7 +201,6 @@ fun MealEntriesScreen(
             item {
                 DayNavigator(
                     label = dayWindow.label,
-                    canGoNewer = true,
                     onOlder = { onSelectedDayOffsetChange(selectedDayOffset + 1) },
                     onNewer = { onSelectedDayOffsetChange(selectedDayOffset - 1) },
                     onToday = { onSelectedDayOffsetChange(0) },
@@ -365,18 +364,13 @@ private fun SelectableStatsHeader(
                     expanded = changeMenuExpanded,
                     onExpandedChange = onChangeMenuExpandedChange,
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Since 00:00") },
-                        onClick = { onSelectStatsWindow(MealStatsWindowMode.SINCE_MIDNIGHT) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Last 24h") },
-                        onClick = { onSelectStatsWindow(MealStatsWindowMode.LAST_24_HOURS) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Custom") },
-                        onClick = { onSelectStatsWindow(MealStatsWindowMode.CUSTOM) },
-                    )
+                    // `entries` order is the display order: Since 00:00, Last 24h, Custom.
+                    MealStatsWindowMode.entries.forEach { mode ->
+                        DropdownMenuItem(
+                            text = { Text(mode.label) },
+                            onClick = { onSelectStatsWindow(mode) },
+                        )
+                    }
                 }
             }
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -583,9 +577,9 @@ private fun StatsWindowSelectorDialog(
         title = { Text("Stats window") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatsModeOption("Since 00:00", MealStatsWindowMode.SINCE_MIDNIGHT, pendingMode) { pendingModeName = it.name }
-                StatsModeOption("Last 24h", MealStatsWindowMode.LAST_24_HOURS, pendingMode) { pendingModeName = it.name }
-                StatsModeOption("Custom", MealStatsWindowMode.CUSTOM, pendingMode) { pendingModeName = it.name }
+                MealStatsWindowMode.entries.forEach { mode ->
+                    StatsModeOption(mode, pendingMode) { pendingModeName = it.name }
+                }
                 if (pendingMode == MealStatsWindowMode.CUSTOM) {
                     Text(formatRollingStatsLabel(Duration.ofMinutes(pendingMinutes.toLong())), style = MaterialTheme.typography.titleMedium)
                     Slider(
@@ -607,7 +601,6 @@ private fun StatsWindowSelectorDialog(
 
 @Composable
 private fun StatsModeOption(
-    label: String,
     mode: MealStatsWindowMode,
     selectedMode: MealStatsWindowMode,
     onSelected: (MealStatsWindowMode) -> Unit,
@@ -618,14 +611,13 @@ private fun StatsModeOption(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         RadioButton(selected = selectedMode == mode, onClick = { onSelected(mode) })
-        Text(label, style = MaterialTheme.typography.bodyLarge)
+        Text(mode.label, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
 @Composable
 private fun DayNavigator(
     label: String,
-    canGoNewer: Boolean,
     onOlder: () -> Unit,
     onNewer: () -> Unit,
     onToday: () -> Unit,
@@ -683,13 +675,11 @@ private fun DayNavigator(
                 ) { DayNavigatorButtonText("Previous day") }
                 TextButton(
                     onClick = onToday,
-                    enabled = canGoNewer,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                 ) { DayNavigatorButtonText("Today") }
                 OutlinedButton(
                     onClick = onNewer,
-                    enabled = canGoNewer,
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
                 ) { DayNavigatorButtonText("Next day") }
@@ -913,10 +903,6 @@ private fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fol
         saltG = acc.saltG + (meal.totals.saltG ?: 0.0),
     )
 }
-
-private fun Double?.formatEnergy(): String = this?.let { kcal ->
-    "${(kcal * 4.184).roundToInt()} kJ / ${kcal.formatNullable()} kcal"
-} ?: "unknown"
 
 /** Total mapping of a meal's food-type category to its list-row icon; OTHER is the neutral default. */
 private fun MealCategory.categoryIcon() = when (this) {

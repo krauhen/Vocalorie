@@ -10,25 +10,30 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -43,6 +48,7 @@ import java.time.format.ResolverStyle
 import java.util.Date
 import java.util.Locale
 import java.time.temporal.ChronoField
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 
 const val EDITABLE_TIMESTAMP_FORMAT: String = "yyyy-MM-dd HH:mm"
@@ -277,8 +283,49 @@ fun ErrorCard(message: String, diagnostic: String?, onRetry: (() -> Unit)? = nul
     }
 }
 
+/**
+ * The one editable timestamp field, shared by the meal and activity editors so both stay in step on
+ * label, format hint and error state.
+ */
+@Composable
+fun EntryTimestampField(epochMillis: Long, enabled: Boolean, onChange: (Long) -> Unit, onValidationChange: (Boolean) -> Unit) {
+    var value by rememberSaveable { mutableStateOf(formatEditableTimestamp(epochMillis)) }
+    var isInvalid by remember(epochMillis) { mutableStateOf(false) }
+
+    LaunchedEffect(epochMillis) {
+        if (shouldResyncEditableTimestamp(value, epochMillis)) {
+            value = formatEditableTimestamp(epochMillis)
+        }
+        val isValid = parseEditableTimestamp(value) != null
+        isInvalid = !isValid
+        onValidationChange(isValid)
+    }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = { updated ->
+            value = updated
+            val parsed = parseEditableTimestamp(updated)
+            val isValid = parsed != null
+            isInvalid = !isValid
+            onValidationChange(isValid)
+            if (parsed != null) onChange(parsed)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("Added date/time") },
+        enabled = enabled,
+        isError = isInvalid,
+        supportingText = { Text(if (isInvalid) "Enter a real date/time as $EDITABLE_TIMESTAMP_FORMAT" else "Format: $EDITABLE_TIMESTAMP_FORMAT") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+    )
+}
+
 fun Double?.formatNullable(): String = this?.let { value ->
     if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.US, "%.1f", value)
+} ?: "unknown"
+
+fun Double?.formatEnergy(): String = this?.let { kcal ->
+    "${(kcal * 4.184).roundToInt()} kJ / ${kcal.formatNullable()} kcal"
 } ?: "unknown"
 
 fun formatDate(epochMillis: Long): String = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(mealDateTimeFormatter)
@@ -298,5 +345,14 @@ fun parseEditableTimestamp(value: String, zone: ZoneId = ZoneId.systemDefault())
     null
 }
 
-fun shouldResyncEditableTimestamp(value: String, epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean =
-    parseEditableTimestamp(value, zone) != epochMillis
+/**
+ * Whether the field's text should be overwritten from [epochMillis].
+ *
+ * Text that does not parse is text the user is still typing — half a date, a cleared field, a minute
+ * with one digit so far. Overwriting it would swallow their keystrokes, so only a complete value that
+ * genuinely disagrees with the stored instant triggers a resync.
+ */
+fun shouldResyncEditableTimestamp(value: String, epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean {
+    val parsed = parseEditableTimestamp(value, zone) ?: return false
+    return parsed != epochMillis
+}
