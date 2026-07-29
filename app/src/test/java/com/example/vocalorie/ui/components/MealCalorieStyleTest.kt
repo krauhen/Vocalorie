@@ -25,13 +25,13 @@ class MealCalorieStyleTest {
 
     @Test
     fun savedEntryBackgroundStyleDoesNotUseConfidenceOrReviewState() {
-        val mealEntriesScreen = productionSource("MealEntriesScreen.kt")
+        val mealEntriesRows = productionSource("MealEntriesRows.kt")
 
-        assertTrue(mealEntriesScreen.contains("mealCalorieStateStyle(meal.totals.caloriesKcal)"))
-        assertTrue(mealEntriesScreen.contains("formatDate(meal.createdAtEpochMillis)"))
-        assertTrue(mealEntriesScreen.contains("color = style.contentColor"))
-        assertFalse(mealEntriesScreen.contains("mealStateStyle(meal)"))
-        assertFalse(mealEntriesScreen.contains("if (meal.needsHumanReview) 2.dp else 1.dp"))
+        assertTrue(mealEntriesRows.contains("mealCalorieStateStyle(meal.totals.caloriesKcal)"))
+        assertTrue(mealEntriesRows.contains("formatDate(meal.createdAtEpochMillis)"))
+        assertTrue(mealEntriesRows.contains("color = style.contentColor"))
+        assertFalse(mealEntriesRows.contains("mealStateStyle(meal)"))
+        assertFalse(mealEntriesRows.contains("if (meal.needsHumanReview) 2.dp else 1.dp"))
     }
 
 }

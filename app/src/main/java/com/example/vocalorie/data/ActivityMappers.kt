@@ -1,5 +1,6 @@
 package com.example.vocalorie.data
 
+import com.example.vocalorie.model.ActivityDraftValidation
 import com.example.vocalorie.model.ActivityType
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.SavedActivity
@@ -18,6 +19,24 @@ fun EditableActivityDraft.toEntity(createdAtEpochMillis: Long = System.currentTi
 
 fun EditableActivityDraft.toEntity(id: Long, createdAtEpochMillis: Long): ActivityEntity =
     toEntity(createdAtEpochMillis = createdAtEpochMillis).copy(id = id)
+
+/**
+ * The entity for an activity that already passed [com.example.vocalorie.model.validate]: text fields
+ * come from the draft, the three numeric fields from the validated values.
+ *
+ * They are not the same thing. A STEPS entry's calories are *derived* from its step count rather
+ * than entered, its duration is always zero, and every other type carries no step count — so
+ * re-parsing the draft's own text here would persist the wrong numbers.
+ */
+fun EditableActivityDraft.toEntity(
+    id: Long,
+    createdAtEpochMillis: Long,
+    validated: ActivityDraftValidation.Valid,
+): ActivityEntity = toEntity(id = id, createdAtEpochMillis = createdAtEpochMillis).copy(
+    caloriesBurnedKcal = validated.caloriesBurnedKcal,
+    durationMinutes = validated.durationMinutes,
+    stepsCount = validated.stepsCount,
+)
 
 fun ActivityEntity.toSavedActivity(): SavedActivity = SavedActivity(
     id = id,

@@ -3,6 +3,7 @@ package com.example.vocalorie.data.repository
 import androidx.compose.ui.graphics.Color
 import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.settings.InMemorySharedPreferences
+import com.example.vocalorie.settings.NutritionSettingsStore
 import com.example.vocalorie.settings.OpenAiApiKeyStore
 import com.example.vocalorie.settings.SecretKeyState
 import com.example.vocalorie.settings.ThemeSettingsStore
@@ -28,8 +29,9 @@ class SettingsRepositoriesTest {
 
     @Test
     fun themeSnapshotReadsEverySettingsSliceInOnePass() = runTest {
-        val store = ThemeSettingsStore(testContext(InMemorySharedPreferences()))
-        val repository = ThemeSettingsRepository(store)
+        val context = testContext(InMemorySharedPreferences())
+        val store = ThemeSettingsStore(context)
+        val repository = ThemeSettingsRepository(store, NutritionSettingsStore(context))
         repository.saveBaseCaloriesBurned(2100)
         repository.saveKcalPerStep(30 / 1000.0)
         repository.saveNutritionGoals(NutritionGoals(calorieGoalKcal = 1900, proteinPercent = 30, carbsPercent = 40, fatPercent = 30))
@@ -45,7 +47,7 @@ class SettingsRepositoriesTest {
 
     @Test
     fun themeColorWritesRoundTripThroughTheSnapshot() = runTest {
-        val repository = ThemeSettingsRepository(ThemeSettingsStore(testContext(InMemorySharedPreferences())))
+        val repository = themeSettingsRepository()
         val primary = Color(0xFF123456)
         val activityOutline = Color(0xFF654321)
 
@@ -60,7 +62,7 @@ class SettingsRepositoriesTest {
     @Test
     fun themeReadsAndWritesRunOnTheInjectedDispatcher() = runTest {
         val dispatcher = CountingDispatcher()
-        val repository = ThemeSettingsRepository(ThemeSettingsStore(testContext(InMemorySharedPreferences())), dispatcher)
+        val repository = themeSettingsRepository(dispatcher)
 
         repository.saveBaseCaloriesBurned(2100)
         val afterWrite = dispatcher.dispatches
@@ -134,6 +136,13 @@ class SettingsRepositoriesTest {
         repository.openAiApiKey()
 
         assertTrue("the decrypt must dispatch", dispatcher.dispatches > 0)
+    }
+
+    private fun themeSettingsRepository(
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    ): ThemeSettingsRepository {
+        val context = testContext(InMemorySharedPreferences())
+        return ThemeSettingsRepository(ThemeSettingsStore(context), NutritionSettingsStore(context), dispatcher)
     }
 
     private fun secretRepository(

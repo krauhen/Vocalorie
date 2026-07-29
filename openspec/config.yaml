@@ -1,20 +1,40 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Vocalorie: a personal, single-user Android nutrition-tracking app. One developer, one user,
+  no backend, no CI, never published to a store.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Tech stack: Kotlin, Jetpack Compose + Material 3, AGP 9.2.1 with built-in Kotlin (no KSP —
+  it refuses to run alongside built-in Kotlin), Room (schema v10, four entities), Koog against
+  OpenAI for meal parsing, Ktor for the research tools. Single Gradle module.
+
+  Layering is one-directional: UI -> state holder -> repository -> DAO. No `Context` and no DAO
+  reference above the repository boundary. `AppContainer` wires the graph by hand; there is no DI
+  framework, no navigation library. Full rules: `agentic/guidance/CODING.md`. ADRs and the
+  accepted-debt table: `docs/arc42.md`.
+
+  Room migrations are additive only — never `fallbackToDestructiveMigration`. A schema bump also
+  raises `BACKUP_SCHEMA_VERSION` and widens `SUPPORTED_BACKUP_SCHEMA_VERSIONS` in the same commit,
+  or backups already exported stop importing.
+
+  Verification after a change (canonical: `agentic/guidance/TESTING.md`):
+    ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+  Plus, for schema/migration work:
+    ./gradlew :app:compileDebugAndroidTestKotlin :app:connectedDebugAndroidTest --no-daemon
+
+  `src/test` is pure JVM: no network, no real key, no machine path, no billable call.
+
+rules:
+  proposal:
+    - State the user-visible problem first; this app has one user, so "why it matters to them" is the whole justification.
+    - Include a Non-goals section, and give every entry a one-line reason.
+  design:
+    - Record each decision as a numbered D-item with the alternative considered and why it lost.
+    - Name any build-tooling assumption that is unverified, and gate it behind a spike task.
+  tasks:
+    - Group tasks so each group leaves the build green and is independently revertible.
+    - Cite the file and line a task changes.
+    - End each group with an explicit verification task naming the command or the on-device check.
+  spec:
+    - Specify observable behaviour, not build-time conventions — those belong in `agentic/guidance/`.
+    - Every requirement gets at least one WHEN/THEN scenario.

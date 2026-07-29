@@ -89,6 +89,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     annotationProcessor(libs.androidx.room.compiler)
     implementation(libs.colorpicker.compose)
     implementation(libs.androidx.exifinterface)

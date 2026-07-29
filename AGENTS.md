@@ -8,19 +8,20 @@ It is intentionally not the full operating manual. Before starting work, agents 
 
 ## Project
 
-This repository contains **Vocalorie**, a personal Android nutrition-tracking app built around an LLM meal-parsing spike.
+This repository contains **Vocalorie**, a personal Android nutrition-tracking app that turns voice, photo or typed meal input into a structured nutrition estimate via an LLM.
 
 - Package identity: namespace `com.example.vocalorie`, applicationId `app.vocalorie.personal`, app label "Vocalorie".
 - `minSdk 35`, `targetSdk 36`, `compileSdk 36`.
-- Not a git repository (no `.git` directory) as of 2026-07-08; there is no branch/commit history to rely on for prior-change context.
+- This is a Git repository; inspect the working tree and recent commits before editing.
 
-Current implementation, read from actual source (the `agentic/` guidance below still describes an earlier "fresh starter" state and should not be trusted for feature scope):
+Current implementation, read from actual source:
 
-- UI is Jetpack Compose with Material 3: a spike screen for meal input plus a meal-entries history screen, meal editor, voice-input overlay, gallery-image attachment, and a settings screen.
+- UI is Jetpack Compose with Material 3: a meal-capture screen plus a meal-entries history screen with stats, meal and activity editors, voice-input overlay, gallery-image attachment, and a settings screen.
+- Architecture is one-directional: UI → state holder (`ui/capture/MealCaptureViewModel.kt`) → repository (`data/repository/`) → DAO, wired by `AppContainer.kt`. No `Context` and no DAO reference above the repository boundary. No DI framework, no navigation library, no CI.
 - Meal parsing uses Koog (JetBrains agentic framework) against an OpenAI model, requesting a structured nutrition estimate (`NutritionEstimateDtos.kt`) with items, totals, assumptions, warnings, and confidence, from either a typed/spoken query, an attached photo, or both.
 - The OpenAI API key is runtime BYOK, entered in-app; `local.properties` may prefill `openai.api.key` for local convenience and must never be committed.
-- Reviewed meals are persisted to a local Room database (`VocalorieDatabase`, currently at schema version 4 via additive `Migration` steps — no `fallbackToDestructiveMigration`).
-- App-owned Brave Search and WebFetch tools (`AgentTools.kt`) default to deterministic mock responses; real network calls are opt-in from Settings and require a locally stored Brave API key.
+- Reviewed meals, activities and the meal cache are persisted to a local Room database (`VocalorieDatabase`, four entities, currently at schema version 10 via additive `Migration` steps — no `fallbackToDestructiveMigration`). `exportSchema` is on; `app/schemas/` is committed from v8 onward.
+- App-owned Brave Search and WebFetch tools (`AgentTools.kt`) make **real network calls only** — there is no mock path, and `AgentToolsRealOnlyContractTest` fails the build if one is reintroduced. Grounding is active only when a Brave API key is stored and the tool-call budget is above zero, and a failed pass surfaces a warning instead of degrading silently.
 - Voice input uses Android's native `SpeechRecognizer`; availability depends on the device's installed speech service.
 
 Standard local commands:
@@ -29,10 +30,16 @@ Standard local commands:
 ./gradlew :app:assembleDebug --no-daemon
 ```
 
-Preferred verification after a change:
+Preferred verification after a change (canonical source: `agentic/guidance/TESTING.md`):
 
 ```bash
 ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+```
+
+For a Room schema, migration, or persisted-data change, also:
+
+```bash
+./gradlew :app:compileDebugAndroidTestKotlin :app:connectedDebugAndroidTest --no-daemon
 ```
 
 Install and try the current debug build on a running emulator/device:
@@ -63,7 +70,7 @@ If the correct files are unclear, read these defaults first:
 - `agentic/guidance/CODING.md`
 - `agentic/guidance/TESTING.md`
 
-As of 2026-07-08, `agentic/knowledge/*` subfolders and `agentic/sessions/*` are empty placeholders, and `agentic/guidance/*` and `agentic/README.md` still describe the app as a fresh starter — treat those as stale for feature scope, but still authoritative for durable operating rules (app identity, dependency approval, safety boundaries) until explicitly updated. Prefer reading actual source under `app/src/main/java/com/example/vocalorie/` and existing tests under `app/src/test/java/com/example/vocalorie/` for current behavior.
+`agentic/guidance/CODING.md` and `agentic/guidance/TESTING.md` carry the binding architecture and testing rules — read them before any code or test change. `agentic/knowledge/*` and `agentic/sessions/*` are currently empty placeholders. For behaviour detail beyond those rules, prefer `openspec/specs/` and the actual source under `app/src/main/java/com/example/vocalorie/` with its tests under `app/src/test/java/com/example/vocalorie/`.
 
 ---
 
@@ -143,17 +150,30 @@ If there is no ticket ID:
 
 Use this list to decide which files to read.
 
+Two documentation areas sit outside `agentic/` and are part of routing:
+
+- `openspec/` — the spec-driven change workflow. `openspec/specs/<capability>/spec.md` states required behaviour; `openspec/changes/<id>/` holds an in-flight proposal, design and tasks. Read the relevant capability spec before changing behaviour it covers.
+- `docs/arc42.md` — architecture documentation: constraints, building blocks, the ADRs, and the §11.1 accepted-debt table. Read it before an architectural change; an architectural rule change updates `agentic/guidance/` **and** the matching ADR in the same commit.
+
 ### Android app code change
 
 - `agentic/guidance/CODING.md`
 - `agentic/guidance/WORKFLOW.md`
 - `agentic/guidance/TESTING.md`
-- Relevant feature/session files.
+- Relevant `openspec/specs/` capability, and relevant feature/session files.
+
+### State holder, layering, or dependency-wiring change
+
+- `agentic/guidance/CODING.md` (the layering rule)
+- `docs/arc42.md` ADR-6 and ADR-8
+- `app/src/main/java/com/example/vocalorie/AppContainer.kt`
+- `app/src/main/java/com/example/vocalorie/ui/capture/`
+- `app/src/main/java/com/example/vocalorie/data/repository/`
 
 ### Koog prompt, LLM structured-output schema, or nutrition-estimation change
 
 - `agentic/guidance/CODING.md`
-- `app/src/main/java/com/example/vocalorie/ai/KoogNutritionSpike.kt`
+- `app/src/main/java/com/example/vocalorie/ai/KoogNutritionAgent.kt`
 - `app/src/main/java/com/example/vocalorie/model/NutritionEstimateDtos.kt`
 - `app/src/test/java/com/example/vocalorie/ai/NutritionPromptContractTest.kt` (contract test asserting exact prompt/DTO wording — update it deliberately alongside any wording change)
 
@@ -162,12 +182,15 @@ Use this list to decide which files to read.
 - `app/src/main/java/com/example/vocalorie/data/VocalorieDatabase.java`
 - `app/src/main/java/com/example/vocalorie/data/MealEntity.kt`
 - `app/src/main/java/com/example/vocalorie/data/MealMappers.kt`
+- `app/src/main/java/com/example/vocalorie/data/VocalorieBackup.kt` (the backup version moves with the schema version)
+- `openspec/specs/data-backup/spec.md`
 - `agentic/guidance/TESTING.md`
 
 ### Agent tools (Brave Search / WebFetch), Settings, or API-key handling
 
 - `app/src/main/java/com/example/vocalorie/tools/AgentTools.kt`
 - `app/src/main/java/com/example/vocalorie/settings/`
+- `docs/arc42.md` ADR-7 (real-only tools; ADR-4's mock model is superseded)
 - `agentic/guidance/CODING.md`
 
 ### Voice input or gallery-image attachment
@@ -188,6 +211,12 @@ Use this list to decide which files to read.
 ### TODO/follow-up capture
 
 - Relevant files under `agentic/knowledge/todos/`.
+- `agentic/guidance/WORKFLOW.md`
+
+### Architecture documentation or ADR change
+
+- `docs/arc42.md`
+- `agentic/guidance/CODING.md` (rules and ADRs must agree)
 - `agentic/guidance/WORKFLOW.md`
 
 ### Documentation-only work

@@ -3,6 +3,7 @@ package com.example.vocalorie.data.repository
 import com.example.vocalorie.data.ActivityDao
 import com.example.vocalorie.data.toEntity
 import com.example.vocalorie.data.toSavedActivity
+import com.example.vocalorie.model.ActivityDraftValidation
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.SavedActivity
 import kotlinx.coroutines.CoroutineDispatcher
@@ -28,13 +29,27 @@ class ActivityRepository(
     suspend fun activities(): List<SavedActivity> =
         withContext(dispatcher) { activityDao.getAll().map { it.toSavedActivity() } }
 
-    suspend fun saveActivity(draft: EditableActivityDraft, createdAtEpochMillis: Long): Long =
-        withContext(dispatcher) { activityDao.insert(draft.toEntity(createdAtEpochMillis = createdAtEpochMillis)) }
+    /**
+     * Persist a new activity. [validated] is required rather than optional so an unvalidated draft
+     * cannot be written: a STEPS entry's calories are derived from its step count, not entered, and
+     * re-parsing the draft's own text would store the wrong numbers.
+     */
+    suspend fun saveActivity(
+        draft: EditableActivityDraft,
+        validated: ActivityDraftValidation.Valid,
+        createdAtEpochMillis: Long,
+    ): Long = withContext(dispatcher) {
+        activityDao.insert(draft.toEntity(id = 0L, createdAtEpochMillis = createdAtEpochMillis, validated = validated))
+    }
 
-    suspend fun updateActivity(id: Long, draft: EditableActivityDraft, createdAtEpochMillis: Long): Int =
-        withContext(dispatcher) {
-            activityDao.update(draft.toEntity(id = id, createdAtEpochMillis = createdAtEpochMillis))
-        }
+    suspend fun updateActivity(
+        id: Long,
+        draft: EditableActivityDraft,
+        validated: ActivityDraftValidation.Valid,
+        createdAtEpochMillis: Long,
+    ): Int = withContext(dispatcher) {
+        activityDao.update(draft.toEntity(id = id, createdAtEpochMillis = createdAtEpochMillis, validated = validated))
+    }
 
     suspend fun deleteActivity(id: Long): Int = withContext(dispatcher) { activityDao.deleteById(id) }
 }

@@ -22,6 +22,17 @@ class EditableNumberTextTest {
         assertEquals("1.75", 1.7500000000000002.toEditableNumberText())
     }
 
+    /**
+     * Read off the device during this change's visual sign-off, from a portion-scaled meal. These
+     * two survived the formatter's first attempt because their error sits at the tenth decimal,
+     * which is exactly where the rounding scale used to stop. They are the reason it stops at six.
+     */
+    @Test
+    fun roundsAwayPrecisionThatSitsAtTheTenthDecimal() {
+        assertEquals("142.5", 142.4999999998.toEditableNumberText())
+        assertEquals("250", 249.9999999998.toEditableNumberText())
+    }
+
     @Test
     fun keepsSmallValuesOutOfScientificNotation() {
         assertEquals("0.0001", 0.0001.toEditableNumberText())

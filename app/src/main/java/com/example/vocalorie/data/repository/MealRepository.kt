@@ -66,10 +66,23 @@ class MealRepository(
             }
         }
 
-    /** Update an existing meal in place, keeping its id and its (possibly edited) timestamp. */
-    suspend fun updateMeal(id: Long, draft: EditableMealDraft, createdAtEpochMillis: Long): Int =
+    /**
+     * Update an existing reviewed meal in place, keeping its id and its (possibly edited) timestamp,
+     * and refresh both reuse caches from it — as one atomic unit, for the same reason
+     * [saveReviewedMeal] is atomic.
+     *
+     * Editing a saved meal is a reviewed save too: the corrected values are exactly the ones a later
+     * cache hit should reuse, so leaving the caches on the pre-edit values would serve them back.
+     */
+    suspend fun updateReviewedMeal(id: Long, draft: EditableMealDraft, createdAtEpochMillis: Long): Int =
         withContext(dispatcher) {
-            mealDao.update(draft.toEntity(id = id, createdAtEpochMillis = createdAtEpochMillis))
+            transactions.inTransaction {
+                val updated = mealDao.update(draft.toEntity(id = id, createdAtEpochMillis = createdAtEpochMillis))
+                draft.toCachedMealEntity()?.let { cacheDao.upsertMeal(it) }
+                val cachedItems = draft.toCachedItemEntities()
+                if (cachedItems.isNotEmpty()) cacheDao.upsertItems(cachedItems)
+                updated
+            }
         }
 
     suspend fun deleteMeal(id: Long): Int = withContext(dispatcher) { mealDao.deleteById(id) }

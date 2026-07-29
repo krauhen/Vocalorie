@@ -33,6 +33,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,9 +48,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.ai.KoogNutritionAgent
-import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.settings.OpenAiModelChoice
-import com.example.vocalorie.settings.ThemeColors
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.settings.ToolSettingsLabels
 import com.example.vocalorie.ui.components.SectionTitle
@@ -57,46 +56,38 @@ import com.github.skydoves.colorpicker.compose.BrightnessSlider
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
 import com.github.skydoves.colorpicker.compose.rememberColorPickerController
 
+/** The three appearance cards, in render order, as (slot, row label) pairs. */
+private val SHARED_SURFACE_SLOTS = listOf(
+    ThemeColorSlot.BACKGROUND to "Background",
+    ThemeColorSlot.SURFACE to "Surface",
+    ThemeColorSlot.SURFACE_VARIANT to "Surface variant",
+)
+
+private val MEAL_PALETTE_SLOTS = listOf(
+    ThemeColorSlot.MEAL_PRIMARY to "Primary",
+    ThemeColorSlot.MEAL_SECONDARY to "Secondary",
+    ThemeColorSlot.MEAL_ACCENT to "Accent",
+    ThemeColorSlot.MEAL_OUTLINE to "Outline",
+)
+
+private val ACTIVITY_PALETTE_SLOTS = listOf(
+    ThemeColorSlot.ACTIVITY_PRIMARY to "Primary",
+    ThemeColorSlot.ACTIVITY_SECONDARY to "Secondary",
+    ThemeColorSlot.ACTIVITY_ACCENT to "Accent",
+    ThemeColorSlot.ACTIVITY_OUTLINE to "Outline",
+)
+
+/**
+ * The settings screen: it renders [SettingsUiState] and emits [SettingsEvent]s.
+ *
+ * Holds only the transient text-field and dialog state that belongs to a text field or a dialog.
+ * Every value it shows and every decision it triggers comes from outside.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    themeColors: ThemeColors,
-    onSavePrimaryColor: (Color) -> Unit,
-    onSaveSecondaryColor: (Color) -> Unit,
-    onSaveAccentColor: (Color) -> Unit,
-    onSaveBackgroundColor: (Color) -> Unit,
-    onSaveSurfaceColor: (Color) -> Unit,
-    onSaveSurfaceVariantColor: (Color) -> Unit,
-    onSaveOutlineColor: (Color) -> Unit,
-    activityColors: ThemeColors,
-    onSaveActivityPrimaryColor: (Color) -> Unit,
-    onSaveActivitySecondaryColor: (Color) -> Unit,
-    onSaveActivityAccentColor: (Color) -> Unit,
-    onSaveActivityOutlineColor: (Color) -> Unit,
-    baseCaloriesBurned: Int,
-    onSaveBaseCaloriesBurned: (String) -> Unit,
-    kcalPerStep: Double,
-    onSaveKcalPerStep: (String) -> Unit,
-    nutritionGoals: NutritionGoals,
-    onSaveNutritionGoals: (calorieGoal: String, proteinPercent: String, carbsPercent: String) -> Unit,
-    savedKeyLabel: String?,
-    runtimeApiKey: String,
-    onRuntimeApiKeyChange: (String) -> Unit,
-    braveKeyLabel: String?,
-    toolSettings: ToolSettings,
-    message: String?,
-    enabled: Boolean,
-    onSaveKey: (String) -> Unit,
-    onClearKey: () -> Unit,
-    onSaveBraveKey: (String) -> Unit,
-    onClearBraveKey: () -> Unit,
-    onSaveMaxResearchToolCalls: (String) -> Unit,
-    onSaveMaxAgentIterations: (String) -> Unit,
-    onSaveOpenAiModelChoice: (String) -> Unit,
-    onSaveSystemPrompt: (String) -> Unit,
-    onResetSystemPrompt: () -> Unit,
-    onExportData: () -> Unit,
-    onImportData: () -> Unit,
+    state: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
     onBack: () -> Unit,
 ) {
     Scaffold(
@@ -107,115 +98,54 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        SettingsContent(
-            padding = padding,
-            themeColors = themeColors,
-            onSavePrimaryColor = onSavePrimaryColor,
-            onSaveSecondaryColor = onSaveSecondaryColor,
-            onSaveAccentColor = onSaveAccentColor,
-            onSaveBackgroundColor = onSaveBackgroundColor,
-            onSaveSurfaceColor = onSaveSurfaceColor,
-            onSaveSurfaceVariantColor = onSaveSurfaceVariantColor,
-            onSaveOutlineColor = onSaveOutlineColor,
-            activityColors = activityColors,
-            onSaveActivityPrimaryColor = onSaveActivityPrimaryColor,
-            onSaveActivitySecondaryColor = onSaveActivitySecondaryColor,
-            onSaveActivityAccentColor = onSaveActivityAccentColor,
-            onSaveActivityOutlineColor = onSaveActivityOutlineColor,
-            baseCaloriesBurned = baseCaloriesBurned,
-            onSaveBaseCaloriesBurned = onSaveBaseCaloriesBurned,
-            kcalPerStep = kcalPerStep,
-            onSaveKcalPerStep = onSaveKcalPerStep,
-            nutritionGoals = nutritionGoals,
-            onSaveNutritionGoals = onSaveNutritionGoals,
-            savedKeyLabel = savedKeyLabel,
-            runtimeApiKey = runtimeApiKey,
-            onRuntimeApiKeyChange = onRuntimeApiKeyChange,
-            braveKeyLabel = braveKeyLabel,
-            toolSettings = toolSettings,
-            message = message,
-            enabled = enabled,
-            onSaveKey = onSaveKey,
-            onClearKey = onClearKey,
-            onSaveBraveKey = onSaveBraveKey,
-            onClearBraveKey = onClearBraveKey,
-            onSaveMaxResearchToolCalls = onSaveMaxResearchToolCalls,
-            onSaveMaxAgentIterations = onSaveMaxAgentIterations,
-            onSaveOpenAiModelChoice = onSaveOpenAiModelChoice,
-            onSaveSystemPrompt = onSaveSystemPrompt,
-            onResetSystemPrompt = onResetSystemPrompt,
-            onExportData = onExportData,
-            onImportData = onImportData,
-        )
+        SettingsContent(padding = padding, state = state, onEvent = onEvent)
     }
 }
 
 @Composable
 private fun SettingsContent(
     padding: PaddingValues,
-    themeColors: ThemeColors,
-    onSavePrimaryColor: (Color) -> Unit,
-    onSaveSecondaryColor: (Color) -> Unit,
-    onSaveAccentColor: (Color) -> Unit,
-    onSaveBackgroundColor: (Color) -> Unit,
-    onSaveSurfaceColor: (Color) -> Unit,
-    onSaveSurfaceVariantColor: (Color) -> Unit,
-    onSaveOutlineColor: (Color) -> Unit,
-    activityColors: ThemeColors,
-    onSaveActivityPrimaryColor: (Color) -> Unit,
-    onSaveActivitySecondaryColor: (Color) -> Unit,
-    onSaveActivityAccentColor: (Color) -> Unit,
-    onSaveActivityOutlineColor: (Color) -> Unit,
-    baseCaloriesBurned: Int,
-    onSaveBaseCaloriesBurned: (String) -> Unit,
-    kcalPerStep: Double,
-    onSaveKcalPerStep: (String) -> Unit,
-    nutritionGoals: NutritionGoals,
-    onSaveNutritionGoals: (calorieGoal: String, proteinPercent: String, carbsPercent: String) -> Unit,
-    savedKeyLabel: String?,
-    runtimeApiKey: String,
-    onRuntimeApiKeyChange: (String) -> Unit,
-    braveKeyLabel: String?,
-    toolSettings: ToolSettings,
-    message: String?,
-    enabled: Boolean,
-    onSaveKey: (String) -> Unit,
-    onClearKey: () -> Unit,
-    onSaveBraveKey: (String) -> Unit,
-    onClearBraveKey: () -> Unit,
-    onSaveMaxResearchToolCalls: (String) -> Unit,
-    onSaveMaxAgentIterations: (String) -> Unit,
-    onSaveOpenAiModelChoice: (String) -> Unit,
-    onSaveSystemPrompt: (String) -> Unit,
-    onResetSystemPrompt: () -> Unit,
-    onExportData: () -> Unit,
-    onImportData: () -> Unit,
+    state: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
 ) {
-    var primaryColor by remember(themeColors.primary) { mutableStateOf(themeColors.primary) }
-    var secondaryColor by remember(themeColors.secondary) { mutableStateOf(themeColors.secondary) }
-    var accentColor by remember(themeColors.accent) { mutableStateOf(themeColors.accent) }
-    var backgroundColor by remember(themeColors.background) { mutableStateOf(themeColors.background) }
-    var surfaceColor by remember(themeColors.surface) { mutableStateOf(themeColors.surface) }
-    var surfaceVariantColor by remember(themeColors.surfaceVariant) { mutableStateOf(themeColors.surfaceVariant) }
-    var outlineColor by remember(themeColors.outline) { mutableStateOf(themeColors.outline) }
-    var activityPrimaryColor by remember(activityColors.primary) { mutableStateOf(activityColors.primary) }
-    var activitySecondaryColor by remember(activityColors.secondary) { mutableStateOf(activityColors.secondary) }
-    var activityAccentColor by remember(activityColors.accent) { mutableStateOf(activityColors.accent) }
-    var activityOutlineColor by remember(activityColors.outline) { mutableStateOf(activityColors.outline) }
-    var baseCaloriesBurnedInput by remember(baseCaloriesBurned) { mutableStateOf(baseCaloriesBurned.toString()) }
-    // Edited as kcal per 1,000 steps (friendlier than tiny per-step decimals).
-    var kcalPer1000StepsInput by remember(kcalPerStep) {
-        mutableStateOf((kcalPerStep * 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
+    val enabled = state.enabled
+    val toolSettings = state.toolSettings
+
+    // A picked colour shows immediately rather than waiting for the save to round-trip through the
+    // preference store and arrive back on `state`; the overrides are dropped as soon as it does.
+    val pickedColors = remember(state.mealColors, state.activityColors) {
+        mutableStateMapOf<ThemeColorSlot, Color>()
     }
-    var calorieGoalInput by remember(nutritionGoals.calorieGoalKcal) { mutableStateOf(nutritionGoals.calorieGoalKcal.toString()) }
-    var proteinPercentInput by remember(nutritionGoals.proteinPercent) { mutableStateOf(nutritionGoals.proteinPercent.toString()) }
-    var carbsPercentInput by remember(nutritionGoals.carbsPercent) { mutableStateOf(nutritionGoals.carbsPercent.toString()) }
+    val colorOf: (ThemeColorSlot) -> Color = { slot -> pickedColors[slot] ?: state.color(slot) }
+    val onColorPicked: (ThemeColorSlot, Color) -> Unit = { slot, color ->
+        pickedColors[slot] = color
+        onEvent(SettingsEvent.SaveColor(slot, color))
+    }
+
+    var baseCaloriesBurnedInput by remember(state.baseCaloriesBurned) {
+        mutableStateOf(state.baseCaloriesBurned.toString())
+    }
+    // Edited as kcal per 1,000 steps (friendlier than tiny per-step decimals).
+    var kcalPer1000StepsInput by remember(state.kcalPerStep) {
+        mutableStateOf((state.kcalPerStep * 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
+    }
+    var calorieGoalInput by remember(state.nutritionGoals.calorieGoalKcal) {
+        mutableStateOf(state.nutritionGoals.calorieGoalKcal.toString())
+    }
+    var proteinPercentInput by remember(state.nutritionGoals.proteinPercent) {
+        mutableStateOf(state.nutritionGoals.proteinPercent.toString())
+    }
+    var carbsPercentInput by remember(state.nutritionGoals.carbsPercent) {
+        mutableStateOf(state.nutritionGoals.carbsPercent.toString())
+    }
     var newApiKey by remember { mutableStateOf("") }
     var newBraveApiKey by remember { mutableStateOf("") }
     var maxResearchToolCallsInput by remember { mutableStateOf(toolSettings.maxResearchToolCalls.toString()) }
     var maxAgentIterationsInput by remember { mutableStateOf(toolSettings.maxAgentIterations.toString()) }
     var showModelDialog by remember { mutableStateOf(false) }
-    var pendingModelName by rememberSaveable(toolSettings.openAiModelChoiceName) { mutableStateOf(toolSettings.openAiModelChoiceName) }
+    var pendingModelName by rememberSaveable(toolSettings.openAiModelChoiceName) {
+        mutableStateOf(toolSettings.openAiModelChoiceName)
+    }
     var systemPromptInput by remember(toolSettings.systemPromptOverride) {
         mutableStateOf(toolSettings.systemPromptOverride ?: KoogNutritionAgent.DEFAULT_SYSTEM_PROMPT)
     }
@@ -237,94 +167,19 @@ private fun SettingsContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SectionTitle("Appearance")
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                ColorPickerRow(
-                    label = "Background",
-                    color = backgroundColor,
-                    enabled = enabled,
-                    onColorSelected = { backgroundColor = it; onSaveBackgroundColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Surface",
-                    color = surfaceColor,
-                    enabled = enabled,
-                    onColorSelected = { surfaceColor = it; onSaveSurfaceColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Surface variant",
-                    color = surfaceVariantColor,
-                    enabled = enabled,
-                    onColorSelected = { surfaceVariantColor = it; onSaveSurfaceVariantColor(it) },
-                )
-            }
-        }
+        PaletteCard(SHARED_SURFACE_SLOTS, enabled, colorOf, onColorPicked)
 
         SectionTitle("Meal Appearance")
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                ColorPickerRow(
-                    label = "Primary",
-                    color = primaryColor,
-                    enabled = enabled,
-                    onColorSelected = { primaryColor = it; onSavePrimaryColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Secondary",
-                    color = secondaryColor,
-                    enabled = enabled,
-                    onColorSelected = { secondaryColor = it; onSaveSecondaryColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Accent",
-                    color = accentColor,
-                    enabled = enabled,
-                    onColorSelected = { accentColor = it; onSaveAccentColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Outline",
-                    color = outlineColor,
-                    enabled = enabled,
-                    onColorSelected = { outlineColor = it; onSaveOutlineColor(it) },
-                )
-            }
-        }
+        PaletteCard(MEAL_PALETTE_SLOTS, enabled, colorOf, onColorPicked)
 
         SectionTitle("Activity Appearance")
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                ColorPickerRow(
-                    label = "Primary",
-                    color = activityPrimaryColor,
-                    enabled = enabled,
-                    onColorSelected = { activityPrimaryColor = it; onSaveActivityPrimaryColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Secondary",
-                    color = activitySecondaryColor,
-                    enabled = enabled,
-                    onColorSelected = { activitySecondaryColor = it; onSaveActivitySecondaryColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Accent",
-                    color = activityAccentColor,
-                    enabled = enabled,
-                    onColorSelected = { activityAccentColor = it; onSaveActivityAccentColor(it) },
-                )
-                ColorPickerRow(
-                    label = "Outline",
-                    color = activityOutlineColor,
-                    enabled = enabled,
-                    onColorSelected = { activityOutlineColor = it; onSaveActivityOutlineColor(it) },
-                )
-            }
-        }
+        PaletteCard(ACTIVITY_PALETTE_SLOTS, enabled, colorOf, onColorPicked)
 
         SectionTitle("Energy baseline")
         Card(modifier = Modifier.fillMaxWidth()) {
             ListItem(
                 headlineContent = { Text("Base calories burned per day") },
-                supportingContent = { Text("Current: $baseCaloriesBurned kcal") },
+                supportingContent = { Text("Current: ${state.baseCaloriesBurned} kcal") },
             )
             OutlinedTextField(
                 value = baseCaloriesBurnedInput,
@@ -337,13 +192,13 @@ private fun SettingsContent(
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSaveBaseCaloriesBurned(baseCaloriesBurnedInput) },
+                    onClick = { onEvent(SettingsEvent.SaveBaseCaloriesBurned(baseCaloriesBurnedInput)) },
                     enabled = enabled && baseCaloriesBurnedInput.isNotBlank(),
                 ) { Text("Save base burn") }
             }
             ListItem(
                 headlineContent = { Text("Calories burned per 1,000 steps") },
-                supportingContent = { Text("Current: ${kcalPerStep * 1000} kcal / 1,000 steps") },
+                supportingContent = { Text("Current: ${state.kcalPerStep * 1000} kcal / 1,000 steps") },
             )
             OutlinedTextField(
                 value = kcalPer1000StepsInput,
@@ -356,7 +211,7 @@ private fun SettingsContent(
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSaveKcalPerStep(kcalPer1000StepsInput) },
+                    onClick = { onEvent(SettingsEvent.SaveKcalPer1000Steps(kcalPer1000StepsInput)) },
                     enabled = enabled && kcalPer1000StepsInput.isNotBlank(),
                 ) { Text("Save step burn") }
             }
@@ -371,7 +226,7 @@ private fun SettingsContent(
                 proteinPct >= 0 && carbsPct >= 0 && fatPct >= 0
             ListItem(
                 headlineContent = { Text("Daily calorie goal") },
-                supportingContent = { Text("Current: ${nutritionGoals.calorieGoalKcal} kcal") },
+                supportingContent = { Text("Current: ${state.nutritionGoals.calorieGoalKcal} kcal") },
             )
             OutlinedTextField(
                 value = calorieGoalInput,
@@ -386,8 +241,8 @@ private fun SettingsContent(
                 headlineContent = { Text("Macro split") },
                 supportingContent = {
                     Text(
-                        "Current: ${nutritionGoals.proteinPercent}% protein / " +
-                            "${nutritionGoals.carbsPercent}% carbs / ${nutritionGoals.fatPercent}% fat. " +
+                        "Current: ${state.nutritionGoals.proteinPercent}% protein / " +
+                            "${state.nutritionGoals.carbsPercent}% carbs / ${state.nutritionGoals.fatPercent}% fat. " +
                             "Fat is derived so the split sums to 100%.",
                     )
                 },
@@ -426,7 +281,15 @@ private fun SettingsContent(
             }
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSaveNutritionGoals(calorieGoalInput, proteinPercentInput, carbsPercentInput) },
+                    onClick = {
+                        onEvent(
+                            SettingsEvent.SaveNutritionGoals(
+                                calorieGoal = calorieGoalInput,
+                                proteinPercent = proteinPercentInput,
+                                carbsPercent = carbsPercentInput,
+                            ),
+                        )
+                    },
                     enabled = enabled && calorieGoalInput.isNotBlank() && splitValid,
                 ) { Text("Save goals") }
             }
@@ -444,8 +307,11 @@ private fun SettingsContent(
                 },
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onExportData, enabled = enabled) { Text("Export data") }
-                OutlinedButton(onClick = onImportData, enabled = enabled) { Text("Import data") }
+                Button(onClick = { onEvent(SettingsEvent.ExportData) }, enabled = enabled) { Text("Export data") }
+                OutlinedButton(
+                    onClick = { onEvent(SettingsEvent.ImportData) },
+                    enabled = enabled,
+                ) { Text("Import data") }
             }
         }
 
@@ -453,7 +319,7 @@ private fun SettingsContent(
         Card(modifier = Modifier.fillMaxWidth()) {
             ListItem(
                 headlineContent = { Text("Saved key") },
-                supportingContent = { Text(savedKeyLabel ?: "No saved OpenAI API key") },
+                supportingContent = { Text(state.savedKeyLabel ?: "No saved OpenAI API key") },
             )
             OutlinedTextField(
                 value = newApiKey,
@@ -467,12 +333,15 @@ private fun SettingsContent(
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        onSaveKey(newApiKey)
+                        onEvent(SettingsEvent.SaveOpenAiKey(newApiKey))
                         newApiKey = ""
                     },
                     enabled = enabled && newApiKey.isNotBlank(),
-                ) { Text(if (savedKeyLabel == null) "Save key" else "Update key") }
-                OutlinedButton(onClick = onClearKey, enabled = enabled && savedKeyLabel != null) { Text("Remove") }
+                ) { Text(if (state.savedKeyLabel == null) "Save key" else "Update key") }
+                OutlinedButton(
+                    onClick = { onEvent(SettingsEvent.ClearOpenAiKey) },
+                    enabled = enabled && state.savedKeyLabel != null,
+                ) { Text("Remove") }
             }
             Text(
                 "Saved keys are encrypted with Android Keystore-backed AES-GCM and kept in local SharedPreferences excluded from Android backup.",
@@ -489,8 +358,8 @@ private fun SettingsContent(
                 supportingContent = { Text("Used only when no encrypted saved key exists. Not persisted by this screen.") },
             )
             OutlinedTextField(
-                value = runtimeApiKey,
-                onValueChange = onRuntimeApiKeyChange,
+                value = state.runtimeApiKey,
+                onValueChange = { onEvent(SettingsEvent.RuntimeApiKeyChanged(it)) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 16.dp),
                 label = { Text("OpenAI API key for this session") },
                 singleLine = true,
@@ -536,7 +405,7 @@ private fun SettingsContent(
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSaveMaxResearchToolCalls(maxResearchToolCallsInput) },
+                    onClick = { onEvent(SettingsEvent.SaveMaxResearchToolCalls(maxResearchToolCallsInput)) },
                     enabled = enabled && maxResearchToolCallsInput.isNotBlank(),
                 ) { Text("Save research limit") }
             }
@@ -560,13 +429,13 @@ private fun SettingsContent(
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
-                    onClick = { onSaveMaxAgentIterations(maxAgentIterationsInput) },
+                    onClick = { onEvent(SettingsEvent.SaveMaxAgentIterations(maxAgentIterationsInput)) },
                     enabled = enabled && maxAgentIterationsInput.isNotBlank(),
                 ) { Text("Save workflow limit") }
             }
             ListItem(
                 headlineContent = { Text("Brave API key") },
-                supportingContent = { Text(braveKeyLabel ?: "No saved Brave API key") },
+                supportingContent = { Text(state.braveKeyLabel ?: "No saved Brave API key") },
             )
             OutlinedTextField(
                 value = newBraveApiKey,
@@ -580,12 +449,15 @@ private fun SettingsContent(
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = {
-                        onSaveBraveKey(newBraveApiKey)
+                        onEvent(SettingsEvent.SaveBraveKey(newBraveApiKey))
                         newBraveApiKey = ""
                     },
                     enabled = enabled && newBraveApiKey.isNotBlank(),
-                ) { Text(if (braveKeyLabel == null) "Save Brave key" else "Update Brave key") }
-                OutlinedButton(onClick = onClearBraveKey, enabled = enabled && braveKeyLabel != null) { Text("Remove") }
+                ) { Text(if (state.braveKeyLabel == null) "Save Brave key" else "Update Brave key") }
+                OutlinedButton(
+                    onClick = { onEvent(SettingsEvent.ClearBraveKey) },
+                    enabled = enabled && state.braveKeyLabel != null,
+                ) { Text("Remove") }
             }
         }
 
@@ -609,10 +481,13 @@ private fun SettingsContent(
                 enabled = enabled,
             )
             Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onSaveSystemPrompt(systemPromptInput) }, enabled = enabled) { Text("Save prompt") }
+                Button(
+                    onClick = { onEvent(SettingsEvent.SaveSystemPrompt(systemPromptInput)) },
+                    enabled = enabled,
+                ) { Text("Save prompt") }
                 OutlinedButton(
                     onClick = {
-                        onResetSystemPrompt()
+                        onEvent(SettingsEvent.ResetSystemPrompt)
                         systemPromptInput = KoogNutritionAgent.DEFAULT_SYSTEM_PROMPT
                     },
                     enabled = enabled,
@@ -620,7 +495,7 @@ private fun SettingsContent(
             }
         }
 
-        message?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        state.message?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
     }
 
     if (showModelDialog) {
@@ -647,12 +522,34 @@ private fun SettingsContent(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    onSaveOpenAiModelChoice(pendingModelName)
+                    onEvent(SettingsEvent.SaveOpenAiModelChoice(pendingModelName))
                     showModelDialog = false
                 }) { Text("Apply") }
             },
             dismissButton = { TextButton(onClick = { showModelDialog = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** One appearance card: a colour-picker row per slot, in the given order. */
+@Composable
+private fun PaletteCard(
+    slots: List<Pair<ThemeColorSlot, String>>,
+    enabled: Boolean,
+    colorOf: (ThemeColorSlot) -> Color,
+    onColorPicked: (ThemeColorSlot, Color) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            slots.forEach { (slot, label) ->
+                ColorPickerRow(
+                    label = label,
+                    color = colorOf(slot),
+                    enabled = enabled,
+                    onColorSelected = { onColorPicked(slot, it) },
+                )
+            }
+        }
     }
 }
 

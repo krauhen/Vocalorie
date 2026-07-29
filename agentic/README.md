@@ -2,7 +2,7 @@
 
 This directory contains repository-specific context for agents working on **Vocalorie**.
 
-Vocalorie is currently a fresh Android/Jetpack Compose starter. Product requirements, domain behavior, and validation evidence should be added here as they become real decisions.
+Vocalorie is a working Android/Jetpack Compose nutrition-tracking app. Required behaviour lives in `openspec/specs/`; architecture and its ADRs live in `docs/arc42.md`. This directory holds the operating rules and the project's own accumulated knowledge.
 
 ## Directory purposes
 
@@ -18,4 +18,5 @@ Vocalorie is currently a fresh Android/Jetpack Compose starter. Product requirem
 - Android app identity: `app.vocalorie.personal`.
 - Kotlin namespace: `com.example.vocalorie`.
 - UI stack: Jetpack Compose with Material 3.
-- Current implementation: minimal buildable starter screen only.
+- Persistence: Room at schema version 10, four entities, additive migrations only.
+- Layering: UI → state holder → repository → DAO, wired by `AppContainer`; no DI framework, no navigation library, no CI.

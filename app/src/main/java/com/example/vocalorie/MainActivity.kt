@@ -14,7 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
-import com.example.vocalorie.settings.ThemeSettingsStore
 import com.example.vocalorie.ui.MealCaptureScreen
 import com.example.vocalorie.ui.VocalorieTheme
 
@@ -28,8 +27,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun VocalorieApp() {
     val context = LocalContext.current
-    val themeSettingsStore = remember { ThemeSettingsStore(context) }
-    var activeThemeColors by remember { mutableStateOf(themeSettingsStore.get()) }
+    val container = remember(context) { AppContainer.get(context) }
+    // Seeded on the caller's thread so the very first frame is painted with the saved palette
+    // rather than the defaults; it follows the selected tab from here on.
+    var activeThemeColors by remember {
+        mutableStateOf(container.themeSettingsRepository.currentSnapshot().mealColors)
+    }
 
     VocalorieTheme(themeColors = activeThemeColors) {
         Surface(
@@ -37,10 +40,7 @@ fun VocalorieApp() {
             color = MaterialTheme.colorScheme.background,
             contentColor = MaterialTheme.colorScheme.onBackground,
         ) {
-            MealCaptureScreen(
-                activeThemeColors = activeThemeColors,
-                onActiveThemeColorsChange = { activeThemeColors = it },
-            )
+            MealCaptureScreen(onActiveThemeColorsChange = { activeThemeColors = it })
         }
     }
 }

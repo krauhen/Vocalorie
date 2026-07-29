@@ -4,10 +4,15 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * Decimal places kept before canonicalising. Ten is far beyond any real nutrition precision and
- * short enough to erase the binary artefacts a chain of `Double` arithmetic leaves behind.
+ * Decimal places kept before canonicalising.
+ *
+ * Six, not ten. Ten was the first choice and it was not enough: portion-scaled meals on the device
+ * still read `142.4999999998` kcal and `249.9999999998` g/ml, because that error sits at the tenth
+ * decimal and so survived rounding to it. Six is still two orders of magnitude finer than any real
+ * nutrition figure — the smallest value this app shows is `0.0001` — while collapsing the ~1e-10
+ * residue a chain of `Double` multiplications leaves behind.
  */
-private const val EDITABLE_NUMBER_SCALE = 10
+private const val EDITABLE_NUMBER_SCALE = 6
 
 /**
  * The single formatter for a number that goes into an editable text field.

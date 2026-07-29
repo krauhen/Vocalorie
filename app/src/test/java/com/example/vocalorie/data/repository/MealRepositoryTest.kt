@@ -121,13 +121,13 @@ class MealRepositoryTest {
     }
 
     @Test
-    fun updatingAMealKeepsItsIdAndDoesNotTouchTheCaches() = runTest {
+    fun updatingAReviewedMealKeepsItsIdAndRefreshesItsCachesInOneTransaction() = runTest {
         val data = FakeVocalorieData()
         val repository = data.mealRepository()
         val id = repository.saveReviewedMeal(draft(query = "Apfel"), createdAtEpochMillis = 1_000L)
-        val cachedBefore = data.cacheDao.meals.toMap()
+        val transactionsBefore = data.transactionCount
 
-        val updated = repository.updateMeal(
+        val updated = repository.updateReviewedMeal(
             id = id,
             draft = draft(query = "Apfel", caloriesKcal = 77.0),
             createdAtEpochMillis = 1_500L,
@@ -137,7 +137,33 @@ class MealRepositoryTest {
         assertEquals(id, data.mealDao.rows.single().id)
         assertEquals(1_500L, data.mealDao.rows.single().createdAtEpochMillis)
         assertEquals(77.0, data.mealDao.rows.single().caloriesKcal!!, 1e-9)
-        assertEquals(cachedBefore, data.cacheDao.meals.toMap())
+        // An edit is a reviewed save: the corrected values are what a later cache hit must reuse.
+        assertEquals("One transaction, not three writes", transactionsBefore + 1, data.transactionCount)
+        assertEquals(1, data.cacheDao.meals.size)
+        assertTrue(
+            "the cache row must carry the edited calories",
+            data.cacheDao.meals.values.single().itemsJson.contains("77"),
+        )
+    }
+
+    @Test
+    fun anUpdateThatFailsPartWayLeavesTheMealRowUnchanged() = runTest {
+        val data = FakeVocalorieData()
+        val repository = data.mealRepository()
+        val id = repository.saveReviewedMeal(draft(query = "Apfel"), createdAtEpochMillis = 1_000L)
+        data.cacheDao.failItemUpsertWith = IllegalStateException("disk full")
+
+        val failure = runCatching {
+            repository.updateReviewedMeal(
+                id = id,
+                draft = draft(query = "Apfel", caloriesKcal = 77.0),
+                createdAtEpochMillis = 1_500L,
+            )
+        }.exceptionOrNull()
+
+        assertTrue("the failure must surface", failure is IllegalStateException)
+        assertEquals(1_000L, data.mealDao.rows.single().createdAtEpochMillis)
+        assertEquals(40.0, data.mealDao.rows.single().caloriesKcal!!, 1e-9)
     }
 
     @Test

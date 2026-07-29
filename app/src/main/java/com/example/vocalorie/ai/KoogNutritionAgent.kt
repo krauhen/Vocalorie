@@ -357,12 +357,6 @@ class KoogNutritionAgent(
             dispose = { it.close() },
         )
 
-        /**
-         * Process-wide default instance for the UI. A later change introduces an application-level
-         * container that owns this; until then the UI reads it from here.
-         */
-        val shared: KoogNutritionAgent by lazy { KoogNutritionAgent() }
-
         fun missingRequiredSystemPromptPhrases(prompt: String): List<String> =
             REQUIRED_SYSTEM_PROMPT_PHRASES.filterNot { prompt.contains(it) }
     }
