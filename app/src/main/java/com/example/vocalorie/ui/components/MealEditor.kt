@@ -393,7 +393,9 @@ private fun NutritionFields(
                 value = nutrition.carbs,
                 onValueChange = { onChange(nutrition.copy(carbs = it)) },
                 modifier = Modifier.weight(1f),
-                label = { Text("Carbohydrate g", maxLines = 1, softWrap = false) },
+                // "Carbohydrate g" does not fit a half-width field and was clipping; the app
+                // already says "Carbs" in the row summaries and "Carbs %" in Settings.
+                label = { Text("Carbs g", maxLines = 1, softWrap = false) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 enabled = enabled,
                 readOnly = readOnly,
