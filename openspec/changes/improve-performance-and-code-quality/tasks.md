@@ -25,19 +25,19 @@
 
 ## 3. AI path: client lifecycle, timeouts, fail-loud, fetch safety
 
-- [ ] 3.1 Extract a `fun interface HttpTextFetcher` and a `KtorHttpTextFetcher` implementation so the tool layer no longer constructs `HttpClient(Android)` per invocation (`tools/AgentTools.kt:123-129`)
-- [ ] 3.2 Extract `interface NutritionEstimator`; make `KoogNutritionAgent` a class taking the fetcher, and cache the `MultiLLMPromptExecutor` + `OpenAILLMClient` per API key instead of rebuilding and leaking them per call (`ai/KoogNutritionAgent.kt:119-124`)
-- [ ] 3.3 Add a request timeout and bounded retry on rate-limit/server errors to the estimate call (`KoogNutritionAgent.kt:166`)
-- [ ] 3.4 Lower the grounding agent's default `maxIterations` from 64 (`settings/ToolSettings.kt`, used at `KoogNutritionAgent.kt:191`). Confirmed live on the S23: a Brave key is saved and the workflow step limit reads 64, so every parse currently runs grounding at up to 64 LLM turns
-- [ ] 3.5 Check `response.status` in `realBraveSearch` (`AgentTools.kt:46-49`) and report a non-2xx as a failure; distinguish a genuinely empty result and a malformed body from a transport failure
-- [ ] 3.6 Surface grounding failure instead of discarding the throwable at `KoogNutritionAgent.kt:127-135`; carry a warning on the result and retain the cause in diagnostics
-- [ ] 3.7 Bound the fetched body read and reject non-text content types before reading (`AgentTools.kt:88`)
-- [ ] 3.8 Fail closed on DNS resolution failure in `requireSafeFetchUrl` (the `getOrDefault(emptyList())` at `AgentTools.kt:139` currently makes the guard vacuously pass) and validate each redirect hop
-- [ ] 3.9 Make `fetchedUrls` collection concurrency-safe (`KoogNutritionAgent.kt:126`), following the `AtomicInteger` pattern already used at `AgentTools.kt:99`
-- [ ] 3.10 Make `toUserMessage()` classify on the cause chain, reusing the walk already in `toDiagnosticString()` (`KoogNutritionAgent.kt:316-342`)
-- [ ] 3.11 Move `require(...)` at `KoogNutritionAgent.kt:96-97` inside the conversion so callers always receive `NutritionAgentException`; delete the duplicated `OpenAiModelChoice → LLModel` `when` at `:109-114` in favour of the existing `OpenAiModelChoice.model`
-- [ ] 3.12 Add behaviour tests with a lambda fetcher: Brave non-2xx is a failure not an empty result, an oversized body is not fully read, a redirect to a link-local address is rejected, an unresolvable host is rejected, a cause-deep rejected key maps to the specific message
-- [ ] 3.13 Verify: `testDebugUnitTest` green; three consecutive estimates leave engine/thread count flat; `NutritionPromptContractTest` updated deliberately if prompt or DTO wording moved
+- [x] 3.1 Extract a `fun interface HttpTextFetcher` and a `KtorHttpTextFetcher` implementation so the tool layer no longer constructs `HttpClient(Android)` per invocation (`tools/AgentTools.kt:123-129`)
+- [x] 3.2 Extract `interface NutritionEstimator`; make `KoogNutritionAgent` a class taking the fetcher, and cache the `MultiLLMPromptExecutor` + `OpenAILLMClient` per API key instead of rebuilding and leaking them per call (`ai/KoogNutritionAgent.kt:119-124`)
+- [x] 3.3 Add a request timeout and bounded retry on rate-limit/server errors to the estimate call (`KoogNutritionAgent.kt:166`)
+- [x] 3.4 Lower the grounding agent's default `maxIterations` from 64 (`settings/ToolSettings.kt`, used at `KoogNutritionAgent.kt:191`). Confirmed live on the S23: a Brave key is saved and the workflow step limit reads 64, so every parse currently runs grounding at up to 64 LLM turns
+- [x] 3.5 Check `response.status` in `realBraveSearch` (`AgentTools.kt:46-49`) and report a non-2xx as a failure; distinguish a genuinely empty result and a malformed body from a transport failure
+- [x] 3.6 Surface grounding failure instead of discarding the throwable at `KoogNutritionAgent.kt:127-135`; carry a warning on the result and retain the cause in diagnostics
+- [x] 3.7 Bound the fetched body read and reject non-text content types before reading (`AgentTools.kt:88`)
+- [x] 3.8 Fail closed on DNS resolution failure in `requireSafeFetchUrl` (the `getOrDefault(emptyList())` at `AgentTools.kt:139` currently makes the guard vacuously pass) and validate each redirect hop
+- [x] 3.9 Make `fetchedUrls` collection concurrency-safe (`KoogNutritionAgent.kt:126`), following the `AtomicInteger` pattern already used at `AgentTools.kt:99`
+- [x] 3.10 Make `toUserMessage()` classify on the cause chain, reusing the walk already in `toDiagnosticString()` (`KoogNutritionAgent.kt:316-342`)
+- [x] 3.11 Move `require(...)` at `KoogNutritionAgent.kt:96-97` inside the conversion so callers always receive `NutritionAgentException`; delete the duplicated `OpenAiModelChoice → LLModel` `when` at `:109-114` in favour of the existing `OpenAiModelChoice.model`
+- [x] 3.12 Add behaviour tests with a lambda fetcher: Brave non-2xx is a failure not an empty result, an oversized body is not fully read, a redirect to a link-local address is rejected, an unresolvable host is rejected, a cause-deep rejected key maps to the specific message
+- [x] 3.13 Verify: `testDebugUnitTest` green; three consecutive estimates leave engine/thread count flat; `NutritionPromptContractTest` updated deliberately if prompt or DTO wording moved
 
 ## 4. Data integrity
 

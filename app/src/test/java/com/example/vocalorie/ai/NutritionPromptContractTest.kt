@@ -82,9 +82,13 @@ class NutritionPromptContractTest {
     @Test
     fun koogPromptUsesStructuredJsonSchemaAndInlineImageAttachment() {
         val promptSource = productionSource("KoogNutritionAgent.kt")
+        // The model-choice mapping lives in ToolSettings.OpenAiModelChoice.model; the agent reads it
+        // instead of duplicating the `when`.
+        val modelChoiceSource = productionSource("ToolSettings.kt")
 
-        assertTrue(promptSource.contains("GPT54MINI"))
-        assertTrue(promptSource.contains("GPT5_4Mini"))
+        assertTrue(modelChoiceSource.contains("GPT54MINI"))
+        assertTrue(modelChoiceSource.contains("GPT5_4Mini"))
+        assertTrue(promptSource.contains("toolSettings.openAiModelChoice.model"))
         assertTrue(promptSource.contains("prompt(\"vocalorie-nutrition-estimate\""))
         assertTrue(promptSource.contains("LLMParams(schema = outputStructure.schema)"))
         assertTrue(promptSource.contains("image(it.image)"))

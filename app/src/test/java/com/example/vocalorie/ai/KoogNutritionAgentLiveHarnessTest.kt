@@ -27,12 +27,12 @@ class KoogNutritionAgentLiveHarnessTest {
             ),
         )
 
-        val result = KoogNutritionAgent.estimate(
+        val result = KoogNutritionAgent().estimate(
             openAiApiKey = apiKey,
             query = QUERY,
             toolSettings = ToolSettings(),
             imageAttachments = listOf(attachment),
-        )
+        ).result
 
         printEstimate(result)
         assertTrue(result.needsHumanReview)

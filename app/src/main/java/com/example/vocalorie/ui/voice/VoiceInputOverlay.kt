@@ -88,6 +88,8 @@ fun VoiceInputOverlay(
     onReset: () -> Unit,
     onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
+    /** Set when a grounding pass ran and failed, so the estimate is unsourced by accident. */
+    groundingWarning: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var showSheet by remember { mutableStateOf(false) }
@@ -130,6 +132,7 @@ fun VoiceInputOverlay(
                 onReset = onReset,
                 onImagesChange = onImagesChange,
                 onSave = onSave,
+                groundingWarning = groundingWarning,
                 enabled = !isLoading && !isSaving,
             )
         }
@@ -158,6 +161,7 @@ private fun VoiceSheetContent(
     onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
     enabled: Boolean,
+    groundingWarning: String? = null,
 ) {
     val canReset = query.isNotBlank() || draft != null || attachedImages.isNotEmpty()
     val canSave = draft != null
@@ -252,6 +256,9 @@ private fun VoiceSheetContent(
         if (isLoading) LoadingRow("Estimating…")
         if (isSaving) LoadingRow("Saving locally…")
         saveMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        groundingWarning?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         error?.let { ErrorCard(message = it, diagnostic = diagnostic, onRetry = onEstimate, enabled = enabled) }
         draft?.let {
             EditableMealEditor(

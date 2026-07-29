@@ -7,7 +7,7 @@ import org.junit.Test
 class ToolSettingsLabelsTest {
     @Test
     fun maxAgentIterationsDefaultsAndRangeAreExplicit() {
-        assertEquals(64, ToolSettings().maxAgentIterations)
+        assertEquals(24, ToolSettings().maxAgentIterations)
         assertEquals(16, ToolSettings.MIN_MAX_AGENT_ITERATIONS)
         assertEquals(128, ToolSettings.MAX_MAX_AGENT_ITERATIONS)
         assertEquals(16..128, ToolSettings.maxAgentIterationsRange)

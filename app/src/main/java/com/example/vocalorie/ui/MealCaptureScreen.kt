@@ -82,6 +82,7 @@ fun MealCaptureScreen(
     var isSaving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var diagnostic by remember { mutableStateOf<String?>(null) }
+    var groundingWarning by remember { mutableStateOf<String?>(null) }
     var saveMessage by remember { mutableStateOf<String?>(null) }
     var attachedImages by remember { mutableStateOf<List<GalleryImageAttachment>>(emptyList()) }
     var resetSignal by remember { mutableStateOf(0) }
@@ -249,6 +250,7 @@ fun MealCaptureScreen(
         draft = null
         error = null
         diagnostic = null
+        groundingWarning = null
         saveMessage = null
         attachedImages = emptyList()
         resetSignal += 1
@@ -265,14 +267,19 @@ fun MealCaptureScreen(
                 }
                 refreshSavedKeyLabel()
                 val settingsForEstimate = refreshToolSettings()
-                draft = KoogNutritionAgent.estimate(
+                val outcome = KoogNutritionAgent.shared.estimate(
                     openAiApiKey = keyForEstimate,
                     query = request.requestQuery,
                     toolSettings = settingsForEstimate,
                     imageAttachments = request.imageAttachments,
-                ).toEditableDraft()
+                )
+                draft = outcome.result.toEditableDraft()
                     .copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
                     .withItemsResolvedFromCache(cachedItems)
+                groundingWarning = outcome.groundingFailureMessage
+                outcome.groundingFailureDiagnostic?.let { groundingDiagnostic ->
+                    diagnostic = listOfNotNull(diagnostic, groundingDiagnostic).joinToString("\n\n")
+                }
             } catch (throwable: NutritionAgentException) {
                 error = throwable.message ?: "Koog nutrition estimate failed."
                 diagnostic = throwable.diagnostic
@@ -485,6 +492,7 @@ fun MealCaptureScreen(
                     isSaving = isSaving,
                     error = error,
                     diagnostic = diagnostic,
+                    groundingWarning = groundingWarning,
                     saveMessage = saveMessage,
                     attachedImages = attachedImages,
                     searchQuery = searchQuery,
@@ -493,6 +501,7 @@ fun MealCaptureScreen(
                     onSearchMealClick = { meal ->
                         error = null
                         diagnostic = null
+                        groundingWarning = null
                         saveMessage = null
                         searchQuery = ""
                         approvalMatch = CachedMealMatch(meal = meal, draft = meal.toEditableDraft())
@@ -502,6 +511,7 @@ fun MealCaptureScreen(
                     onEstimate = {
                         error = null
                         diagnostic = null
+                        groundingWarning = null
                         saveMessage = null
                         draft = null
                         val imageAttachments = attachedImages
@@ -530,12 +540,14 @@ fun MealCaptureScreen(
                         draft = null
                         error = null
                         diagnostic = null
+                        groundingWarning = null
                         saveMessage = null
                         attachedImages = images
                     },
                     onSave = { mealDraft ->
                         error = null
                         diagnostic = null
+                        groundingWarning = null
                         saveMessage = null
                         if (mealDraft.query.isBlank()) {
                             error = "Meal description cannot be blank before saving."
@@ -586,6 +598,7 @@ fun MealCaptureScreen(
                 draft = match.draft
                 error = null
                 diagnostic = null
+                groundingWarning = null
                 saveMessage = null
                 approvalMatch = null
                 pendingEstimateRequest = null

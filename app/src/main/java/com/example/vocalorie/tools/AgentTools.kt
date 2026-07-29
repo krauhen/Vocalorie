@@ -5,23 +5,16 @@ import ai.koog.agents.core.tools.ToolRegistry
 import ai.koog.agents.core.tools.annotations.LLMDescription
 import ai.koog.serialization.typeToken
 import com.example.vocalorie.settings.ToolSettings
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.android.Android
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.isSuccess
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import java.net.InetAddress
-import java.net.URI
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 class BraveSearchTool(
     private val settings: ToolSettings,
     private val researchToolCallLimiter: ResearchToolCallLimiter,
+    private val fetcher: HttpTextFetcher = KtorHttpTextFetcher.shared,
 ) : SimpleTool<BraveSearchTool.Args>(
     argsType = typeToken<Args>(),
     name = "brave_search",
@@ -40,18 +33,45 @@ class BraveSearchTool(
         return realBraveSearch(args.query, apiKey)
     }
 
+    /**
+     * Keeps three outcomes apart: a transport failure, a body that cannot be parsed, and a search
+     * that genuinely found nothing. Only the last one is allowed to look like an empty result.
+     */
     private suspend fun realBraveSearch(query: String, apiKey: String): String {
-        val client = AgentToolHelpers.httpClient()
-        return try {
-            val raw = client.get(AgentToolHelpers.braveSearchUrl(query)) {
-                header("Accept", "application/json")
-                header("X-Subscription-Token", apiKey)
-            }.bodyAsText()
-            AgentToolHelpers.extractBraveSnippets(raw).ifBlank {
-                "Real Brave result: no web snippets returned for '$query'. Preserve uncertainty."
-            }
-        } finally {
-            client.close()
+        val response = try {
+            fetcher.fetch(
+                HttpTextRequest(
+                    url = AgentToolHelpers.braveSearchUrl(query),
+                    headers = mapOf(
+                        "Accept" to "application/json",
+                        "X-Subscription-Token" to apiKey,
+                    ),
+                    maxBytes = AgentToolHelpers.MAX_SEARCH_RESPONSE_BYTES,
+                ),
+            )
+        } catch (error: ResearchRequestException) {
+            throw error
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            throw ResearchRequestException(
+                "Brave Search request failed: ${error.message ?: error::class.simpleName}",
+                error,
+            )
+        }
+        if (!response.isSuccess) {
+            throw ResearchRequestException(
+                "Brave Search rejected the request (HTTP ${response.status}). " +
+                    "This is a grounding failure, not a search that found nothing.",
+            )
+        }
+        if (response.truncated) {
+            throw ResearchRequestException(
+                "Brave Search returned more than ${AgentToolHelpers.MAX_SEARCH_RESPONSE_BYTES} bytes and was cut off.",
+            )
+        }
+        return AgentToolHelpers.extractBraveSnippets(response.body).ifBlank {
+            "Real Brave result: no web snippets returned for '$query'. Preserve uncertainty."
         }
     }
 }
@@ -59,6 +79,7 @@ class BraveSearchTool(
 class WebFetchTool(
     private val researchToolCallLimiter: ResearchToolCallLimiter,
     private val onFetched: (String) -> Unit = {},
+    private val fetcher: HttpTextFetcher = KtorHttpTextFetcher.shared,
 ) : SimpleTool<WebFetchTool.Args>(
     argsType = typeToken<Args>(),
     name = "web_fetch",
@@ -77,20 +98,24 @@ class WebFetchTool(
 
     private suspend fun realWebFetch(url: String): String {
         AgentToolHelpers.requireSafeFetchUrl(url)
-        val client = AgentToolHelpers.httpClient()
-        return try {
-            val response = client.get(url)
-            if (!response.status.isSuccess()) {
-                // A non-2xx page (e.g. a 404) still returns body text; do NOT let such a URL
-                // count as a fetched source. Inform the model so it tries another page.
-                return "web_fetch could not retrieve $url (HTTP ${response.status.value}). Do not cite this URL as a source."
-            }
-            val text = "Fetched content for $url:\n" + AgentToolHelpers.sanitizeFetchedText(response.bodyAsText())
-            onFetched(url)
-            text
-        } finally {
-            client.close()
+        val response = fetcher.fetch(
+            HttpTextRequest(
+                url = url,
+                // Bounds memory, not excerpt quality: markup is stripped afterwards and the
+                // cleaned text is capped at MAX_TOOL_TEXT_CHARS. Reading only 4 KiB of raw HTML
+                // would leave a few hundred usable characters and degrade grounding.
+                maxBytes = AgentToolHelpers.MAX_FETCH_RESPONSE_BYTES,
+                requireTextContent = true,
+            ),
+        )
+        if (!response.isSuccess) {
+            // A non-2xx page (e.g. a 404) still returns body text; do NOT let such a URL
+            // count as a fetched source. Inform the model so it tries another page.
+            return "web_fetch could not retrieve $url (HTTP ${response.status}). Do not cite this URL as a source."
         }
+        val text = "Fetched content for $url:\n" + AgentToolHelpers.sanitizeFetchedText(response.body)
+        onFetched(url)
+        return text
     }
 }
 
@@ -120,31 +145,24 @@ object AgentToolHelpers {
     fun braveSearchUrl(query: String): String =
         "https://api.search.brave.com/res/v1/web/search?q=${query.urlEncode()}&count=3&text_decorations=false"
 
-    fun httpClient(): HttpClient = HttpClient(Android) {
-        install(HttpTimeout) {
-            requestTimeoutMillis = 15_000
-            connectTimeoutMillis = 10_000
-            socketTimeoutMillis = 15_000
-        }
-    }
-
+    /** Rejects a target the fetch-safety policy does not permit; see [FetchUrlPolicy]. */
     fun requireSafeFetchUrl(url: String) {
-        val uri = runCatching { URI(url.trim()) }.getOrElse { throw IllegalArgumentException("web_fetch URL is invalid") }
-        require(uri.scheme.equals("https", ignoreCase = true) || uri.scheme.equals("http", ignoreCase = true)) {
-            "web_fetch URL must start with http:// or https://"
-        }
-        val host = uri.host?.lowercase().orEmpty()
-        require(host.isNotBlank()) { "web_fetch URL must include a host" }
-        require(host != "localhost" && !host.endsWith(".local")) { "web_fetch cannot fetch local hosts" }
-        val addresses = runCatching { InetAddress.getAllByName(host).toList() }.getOrDefault(emptyList())
-        require(addresses.none { it.isAnyLocalAddress || it.isLoopbackAddress || it.isLinkLocalAddress || it.isSiteLocalAddress }) {
-            "web_fetch cannot fetch local or private network addresses"
-        }
+        FetchUrlPolicy.rejectionReason(url)?.let { throw IllegalArgumentException(it) }
     }
 
-    fun extractBraveSnippets(rawJson: String): String = runCatching {
-        val response = braveJson.decodeFromString(BraveSearchResponse.serializer(), rawJson)
-        response.web?.results.orEmpty()
+    /**
+     * Returns formatted snippets, or an empty string when the response parsed but held no snippets.
+     *
+     * @throws ResearchRequestException when the body cannot be parsed into the expected structure,
+     * so an unparseable body is never mistaken for a search that found nothing.
+     */
+    fun extractBraveSnippets(rawJson: String): String {
+        val response = try {
+            braveJson.decodeFromString(BraveSearchResponse.serializer(), rawJson)
+        } catch (error: Exception) {
+            throw ResearchRequestException("Brave Search returned a body that could not be parsed.", error)
+        }
+        return response.web?.results.orEmpty()
             .take(3)
             .joinToString("\n") { result ->
                 listOfNotNull(result.title, result.description, result.url)
@@ -152,7 +170,7 @@ object AgentToolHelpers {
             }
             .take(MAX_TOOL_TEXT_CHARS)
             .let { if (it.isBlank()) it else "Real Brave results:\n$it" }
-    }.getOrDefault("")
+    }
 
     fun sanitizeFetchedText(text: String): String = text
         .replace(Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), " ")
@@ -165,7 +183,13 @@ object AgentToolHelpers {
 
     private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
 
-    private const val MAX_TOOL_TEXT_CHARS = 4_000
+    /** Excerpt retained from a fetched page, and the hard bound on how much of it is read. */
+    const val MAX_TOOL_TEXT_CHARS = 4_000
+
+    /** Bound on a search response body: large enough to parse, small enough to stay safe. */
+    const val MAX_SEARCH_RESPONSE_BYTES = 256 * 1024
+
+    const val MAX_FETCH_RESPONSE_BYTES = 256 * 1024
 }
 
 @Serializable
@@ -183,9 +207,10 @@ private data class BraveWebResult(
 
 fun vocalorieToolRegistry(
     settings: ToolSettings = ToolSettings(),
+    fetcher: HttpTextFetcher = KtorHttpTextFetcher.shared,
     onUrlFetched: (String) -> Unit = {},
 ): ToolRegistry = ToolRegistry {
     val researchToolCallLimiter = ResearchToolCallLimiter(settings.maxResearchToolCalls)
-    tool(BraveSearchTool(settings, researchToolCallLimiter))
-    tool(WebFetchTool(researchToolCallLimiter, onUrlFetched))
+    tool(BraveSearchTool(settings, researchToolCallLimiter, fetcher))
+    tool(WebFetchTool(researchToolCallLimiter, onUrlFetched, fetcher))
 }

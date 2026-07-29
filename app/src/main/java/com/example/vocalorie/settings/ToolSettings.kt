@@ -21,7 +21,9 @@ data class ToolSettings(
 
         const val MIN_MAX_AGENT_ITERATIONS = 16
         const val MAX_MAX_AGENT_ITERATIONS = 128
-        const val DEFAULT_MAX_AGENT_ITERATIONS = 64
+        // 24 keeps headroom over the ~18 turns that 8 research tool calls need at roughly two LLM
+        // turns each, while cutting the worst-case grounding latency and cost by well over half.
+        const val DEFAULT_MAX_AGENT_ITERATIONS = 24
 
         val maxResearchToolCallsRange: IntRange = MIN_MAX_RESEARCH_TOOL_CALLS..MAX_MAX_RESEARCH_TOOL_CALLS
         val maxAgentIterationsRange: IntRange = MIN_MAX_AGENT_ITERATIONS..MAX_MAX_AGENT_ITERATIONS
