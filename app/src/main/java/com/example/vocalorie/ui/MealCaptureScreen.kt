@@ -88,6 +88,11 @@ fun MealCaptureScreen(
             onSelectedDayOffsetChange = viewModel::selectDayOffset,
             baseCaloriesBurned = state.baseCaloriesBurned,
             goals = state.nutritionGoals,
+            dayScoreTips = state.dayScoreTips,
+            tipRotationSeconds = state.tipRotationSeconds,
+            canRewordTips = state.canRewordDayScoreTips,
+            tipsRewordingInFlight = state.tipsRewordingInFlight,
+            onRewordTips = viewModel::rewordDayScoreTips,
             modifier = modifier,
             voiceButton = {
                 val searchResults = remember(state.savedMeals, state.searchQuery) {

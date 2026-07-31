@@ -42,6 +42,7 @@ class SettingsUiStateTest {
         baseCaloriesBurned = 2000,
         kcalPerStep = 0.03,
         nutritionGoals = NutritionGoals(2200, 30, 40, 30),
+        tipRotationSeconds = 5,
         savedKeyLabel = null,
         runtimeApiKey = "",
         braveKeyLabel = null,

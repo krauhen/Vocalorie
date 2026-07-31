@@ -2,6 +2,8 @@ package com.example.vocalorie
 
 import android.content.Context
 import com.example.vocalorie.ai.KoogNutritionAgent
+import com.example.vocalorie.ai.KoogTipRewordingAgent
+import com.example.vocalorie.ai.TipRewordingAgent
 import com.example.vocalorie.ai.NutritionEstimator
 import com.example.vocalorie.data.ContentResolverDocumentTextStore
 import com.example.vocalorie.data.VocalorieDatabase
@@ -59,6 +61,9 @@ class AppContainer private constructor(context: Context) {
 
     /** One nutrition agent, holding its per-key prompt-executor cache for the whole process. */
     val nutritionEstimator: NutritionEstimator = KoogNutritionAgent(httpTextFetcher)
+
+    /** Wording-only companion to [nutritionEstimator]; shares its per-key prompt executor. */
+    val tipRewordingAgent: TipRewordingAgent = KoogTipRewordingAgent()
 
     val mealRepository = MealRepository(
         mealDao = database.mealDao(),

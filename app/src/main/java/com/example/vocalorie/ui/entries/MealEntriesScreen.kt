@@ -40,6 +40,7 @@ import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.ui.entries.stats.DailyNutritionTotals
 import com.example.vocalorie.ui.entries.stats.MealStatsOverview
 import com.example.vocalorie.ui.entries.stats.MealStatsRange
+import com.example.vocalorie.ui.entries.stats.DayScoreTip
 import com.example.vocalorie.ui.entries.stats.nutritionScore
 import java.time.Duration
 import java.time.Instant
@@ -66,6 +67,11 @@ fun MealEntriesScreen(
     onSelectedDayOffsetChange: (Int) -> Unit = {},
     baseCaloriesBurned: Int = 2400,
     goals: NutritionGoals = NutritionGoals.DEFAULT,
+    dayScoreTips: List<DayScoreTip> = emptyList(),
+    tipRotationSeconds: Int = 0,
+    canRewordTips: Boolean = false,
+    tipsRewordingInFlight: Boolean = false,
+    onRewordTips: () -> Unit = {},
     modifier: Modifier = Modifier,
     voiceButton: @Composable () -> Unit,
 ) {
@@ -164,6 +170,11 @@ fun MealEntriesScreen(
                         }
                     },
                     onOpenDetail = { showDayStatsDetail = true },
+                    dayScoreTips = dayScoreTips,
+                    tipRotationSeconds = tipRotationSeconds,
+                    canRewordTips = canRewordTips,
+                    rewordingInFlight = tipsRewordingInFlight,
+                    onRewordTips = onRewordTips,
                 )
             }
             item {
@@ -254,7 +265,8 @@ fun MealEntriesScreen(
     }
 }
 
-private fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fold(
+/** Internal rather than private so the state holder derives day-score tips from the same totals. */
+internal fun List<SavedMeal>.toDailyNutritionTotals(): DailyNutritionTotals = fold(
     DailyNutritionTotals(0.0, 0.0, 0.0, 0.0),
 ) { acc, meal ->
     acc.copy(

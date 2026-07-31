@@ -338,7 +338,7 @@ class KoogNutritionAgent(
          * engine threads; the executor is only rebuilt when the key actually changes, and the
          * superseded one is closed.
          */
-        private val promptExecutors = KeyedResourceCache<MultiLLMPromptExecutor>(
+        internal val promptExecutors = KeyedResourceCache<MultiLLMPromptExecutor>(
             create = { apiKey ->
                 MultiLLMPromptExecutor(
                     LLMProvider.OpenAI to OpenAILLMClient(

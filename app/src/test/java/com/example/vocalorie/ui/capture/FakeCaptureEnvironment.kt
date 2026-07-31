@@ -2,6 +2,7 @@ package com.example.vocalorie.ui.capture
 
 import com.example.vocalorie.ai.NutritionEstimateOutcome
 import com.example.vocalorie.ai.NutritionEstimator
+import com.example.vocalorie.ai.TipRewordingAgent
 import com.example.vocalorie.data.BackupImportResult
 import com.example.vocalorie.data.repository.ActivityRepository
 import com.example.vocalorie.data.repository.BackupRepository
@@ -41,6 +42,7 @@ internal class FakeCaptureEnvironment(
     val data: FakeVocalorieData = FakeVocalorieData(),
     val estimator: FakeNutritionEstimator = FakeNutritionEstimator(),
     val backups: FakeBackupRepository = FakeBackupRepository(),
+    val rewordingAgent: FakeTipRewordingAgent = FakeTipRewordingAgent(),
     private val settingsPrefs: InMemorySharedPreferences = InMemorySharedPreferences(),
 ) {
     private val settingsContext = testContext(settingsPrefs)
@@ -91,11 +93,30 @@ internal class FakeCaptureEnvironment(
         secretRepository = secretRepository,
         backupRepository = backups,
         nutritionEstimator = estimator,
+        tipRewordingAgent = rewordingAgent,
         initialSettings = themeSettingsRepository.currentSnapshot(),
         initialRuntimeApiKey = initialRuntimeApiKey,
         clock = { Instant.ofEpochMilli(nowMillis) },
         zone = zone,
     )
+}
+
+/** Replies with whatever the test configured; never touches the network or a key. */
+internal class FakeTipRewordingAgent : TipRewordingAgent {
+    val calls = mutableListOf<List<String>>()
+    var reply: List<String> = emptyList()
+    var failWith: Throwable? = null
+
+    override suspend fun reword(
+        openAiApiKey: String,
+        toolSettings: ToolSettings,
+        tips: List<String>,
+        dayContext: String,
+    ): List<String> {
+        calls += tips
+        failWith?.let { throw it }
+        return reply
+    }
 }
 
 /** Records every estimate request and replies with whatever the test configured. */

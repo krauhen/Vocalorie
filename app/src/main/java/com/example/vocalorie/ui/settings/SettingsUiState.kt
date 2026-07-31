@@ -39,6 +39,8 @@ data class SettingsUiState(
     val baseCaloriesBurned: Int,
     val kcalPerStep: Double,
     val nutritionGoals: NutritionGoals,
+    /** Seconds between day-score tip rotations; `0` means no rotation. */
+    val tipRotationSeconds: Int,
     val savedKeyLabel: String?,
     val runtimeApiKey: String,
     val braveKeyLabel: String?,
@@ -77,6 +79,8 @@ sealed interface SettingsEvent {
     data class SaveColor(val slot: ThemeColorSlot, val color: Color) : SettingsEvent
 
     data class SaveBaseCaloriesBurned(val input: String) : SettingsEvent
+
+    data class SaveTipRotationSeconds(val input: String) : SettingsEvent
 
     /** Edited as kcal per 1,000 steps; the state holder converts to the stored per-step value. */
     data class SaveKcalPer1000Steps(val input: String) : SettingsEvent

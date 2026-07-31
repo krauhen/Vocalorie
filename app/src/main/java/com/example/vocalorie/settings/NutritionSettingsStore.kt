@@ -25,6 +25,14 @@ class NutritionSettingsStore(context: Context) {
         prefs.edit().putInt(KEY_BASE_CALORIES_BURNED, value).apply()
     }
 
+    /** Seconds between day-score tip rotations; `0` means "no rotation, show the top tip only". */
+    fun getTipRotationSeconds(): Int = prefs.getInt(KEY_TIP_ROTATION_SECONDS, DEFAULT_TIP_ROTATION_SECONDS)
+
+    @Synchronized
+    fun saveTipRotationSeconds(value: Int) {
+        prefs.edit().putInt(KEY_TIP_ROTATION_SECONDS, value).apply()
+    }
+
     /**
      * Reads the step-burn rate, migrating a legacy `Float` value to `Double` on first read.
      *
@@ -89,7 +97,13 @@ class NutritionSettingsStore(context: Context) {
         private const val KEY_MACRO_CARBS_PERCENT = "macro_split_carbs"
         private const val KEY_MACRO_FAT_PERCENT = "macro_split_fat"
 
+        private const val KEY_TIP_ROTATION_SECONDS = "tip_rotation_seconds"
+
         private const val DEFAULT_BASE_CALORIES_BURNED = 2400
+        const val DEFAULT_TIP_ROTATION_SECONDS: Int = 5
+
+        /** Accepted rotation intervals, alongside `0` for "off". Below 2 s a crossfade is unreadable. */
+        val TIP_ROTATION_SECONDS_RANGE: IntRange = 2..60
         // 35 kcal per 1,000 steps (mid of the common 30–40 range).
         private const val DEFAULT_KCAL_PER_STEP = 0.035
 

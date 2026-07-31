@@ -197,14 +197,28 @@ internal fun fatAdherence(fat: Double, target: Double): Double {
  * at twice its limit and docks up to 0.10; total dock capped at 0.30.
  */
 internal fun qualityMultiplier(totals: DailyNutritionTotals, calorieTarget: Double): Double {
-    val satFatLimit = 0.10 * calorieTarget / 9.0
-    val sugarLimit = 0.10 * calorieTarget / 4.0
-    val saltLimit = 5.0
-    val penalty = 0.10 * overage(totals.saturatedFatG, satFatLimit) +
-        0.10 * overage(totals.sugarG, sugarLimit) +
-        0.10 * overage(totals.saltG, saltLimit)
+    val overages = qualityOverages(totals, calorieTarget)
+    val penalty = QUALITY_DOCK_PER_NUTRIENT * (overages.saturatedFat + overages.sugar + overages.salt)
     return 1.0 - penalty
 }
+
+/** The share of the score each quality nutrient can dock on its own. */
+internal const val QUALITY_DOCK_PER_NUTRIENT: Double = 0.10
+
+/** Per-nutrient saturating overages behind [qualityMultiplier], each in [0, 1]. */
+internal data class QualityOverages(
+    val saturatedFat: Double,
+    val sugar: Double,
+    val salt: Double,
+)
+
+/** The limits and overages [qualityMultiplier] penalises, exposed so tips can rank them. */
+internal fun qualityOverages(totals: DailyNutritionTotals, calorieTarget: Double): QualityOverages =
+    QualityOverages(
+        saturatedFat = overage(totals.saturatedFatG, 0.10 * calorieTarget / 9.0),
+        sugar = overage(totals.sugarG, 0.10 * calorieTarget / 4.0),
+        salt = overage(totals.saltG, 5.0),
+    )
 
 /** Fraction over [limit], saturating at twice the limit: 0 when at/under, 1 at 2x or beyond. */
 private fun overage(value: Double, limit: Double): Double =

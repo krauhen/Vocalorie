@@ -10,6 +10,7 @@ import com.example.vocalorie.AppContainer
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.ai.NutritionEstimator
+import com.example.vocalorie.ai.TipRewordingAgent
 import com.example.vocalorie.data.CachedMealMatch
 import com.example.vocalorie.data.repository.ActivityRepository
 import com.example.vocalorie.data.repository.BackupRepository
@@ -27,9 +28,15 @@ import com.example.vocalorie.model.NutritionGoalsParseResult
 import com.example.vocalorie.model.SavedActivity
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.model.validate
+import com.example.vocalorie.settings.NutritionSettingsStore
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.ui.entries.EntriesTab
+import com.example.vocalorie.ui.entries.filterActivitiesForDay
+import com.example.vocalorie.ui.entries.filterMealsForDay
 import com.example.vocalorie.ui.entries.selectedDayTimestampMillis
+import com.example.vocalorie.ui.entries.stats.dayScoreTips
+import com.example.vocalorie.ui.entries.stats.validateRewordedTips
+import com.example.vocalorie.ui.entries.toDailyNutritionTotals
 import com.example.vocalorie.ui.settings.SettingsEvent
 import com.example.vocalorie.ui.settings.ThemeColorSlot
 import com.example.vocalorie.ui.voice.GalleryImageAttachment
@@ -41,6 +48,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
 
 /**
@@ -69,6 +77,7 @@ class MealCaptureViewModel(
     private val secretRepository: SecretRepository,
     private val backupRepository: BackupRepository,
     private val nutritionEstimator: NutritionEstimator,
+    private val tipRewordingAgent: TipRewordingAgent,
     initialSettings: ThemeSettingsSnapshot,
     initialRuntimeApiKey: String = "",
     private val clock: () -> Instant = Instant::now,
@@ -82,6 +91,7 @@ class MealCaptureViewModel(
             baseCaloriesBurned = initialSettings.baseCaloriesBurned,
             kcalPerStep = initialSettings.kcalPerStep,
             nutritionGoals = initialSettings.nutritionGoals,
+            tipRotationSeconds = initialSettings.tipRotationSeconds,
             now = clock(),
             runtimeApiKey = initialRuntimeApiKey,
         ),
@@ -122,6 +132,7 @@ class MealCaptureViewModel(
                 baseCaloriesBurned = snapshot.baseCaloriesBurned,
                 kcalPerStep = snapshot.kcalPerStep,
                 nutritionGoals = snapshot.nutritionGoals,
+                tipRotationSeconds = snapshot.tipRotationSeconds,
             )
         }
     }
@@ -508,6 +519,51 @@ class MealCaptureViewModel(
         }
     }
 
+    // --- Day-score tips ------------------------------------------------------------------
+
+    /**
+     * Asks the model to reword the current rule tips, and keeps them unchanged on anything else.
+     *
+     * Explicit only (design D4) — never called on a recomposition or a data change. Every failure
+     * mode is silent by design: nothing was promised, so nothing visibly fails. A reply is accepted
+     * wholesale or not at all.
+     */
+    fun rewordDayScoreTips() {
+        val ruleTips = state.dayScoreTips
+        if (ruleTips.isEmpty() || state.tipsRewordingInFlight) return
+        update { it.copy(tipsRewordingInFlight = true) }
+        viewModelScope.launch {
+            try {
+                val key = secretRepository.openAiApiKey() ?: state.runtimeApiKey
+                val reply = runCatching {
+                    tipRewordingAgent.reword(
+                        openAiApiKey = key,
+                        toolSettings = state.toolSettings,
+                        tips = ruleTips.map { it.text },
+                        dayContext = dayContextForRewording(),
+                    )
+                }.getOrNull().orEmpty()
+                update { it.copy(dayScoreTips = validateRewordedTips(ruleTips, reply)) }
+            } finally {
+                update { it.copy(tipsRewordingInFlight = false) }
+            }
+        }
+    }
+
+    /** The day's numbers, so the model rewords with the same facts the rule tips were derived from. */
+    private fun dayContextForRewording(): String {
+        val current = state
+        val totals = filterMealsForDay(current.savedMeals, 0, current.now, zone).toDailyNutritionTotals()
+        val goals = current.nutritionGoals
+        val targets = goals.macroTargets()
+        return "%.0f of %d kcal, protein %.0f/%.0f g, carbs %.0f/%.0f g, fat %.0f/%.0f g".format(
+            totals.caloriesKcal, goals.calorieGoalKcal,
+            totals.proteinG, targets.proteinG,
+            totals.carbsG, targets.carbsG,
+            totals.fatG, targets.fatG,
+        )
+    }
+
     // --- Settings events -------------------------------------------------------------------
 
     /**
@@ -518,6 +574,7 @@ class MealCaptureViewModel(
         when (event) {
             is SettingsEvent.SaveColor -> saveThemeColor(event.slot, event.color)
             is SettingsEvent.SaveBaseCaloriesBurned -> saveBaseCaloriesBurned(event.input)
+            is SettingsEvent.SaveTipRotationSeconds -> saveTipRotationSeconds(event.input)
             is SettingsEvent.SaveKcalPer1000Steps -> saveKcalPerStep(event.input)
             is SettingsEvent.SaveNutritionGoals ->
                 saveNutritionGoals(event.calorieGoal, event.proteinPercent, event.carbsPercent)
@@ -579,6 +636,24 @@ class MealCaptureViewModel(
                             settingsMessage = throwable.message ?: "Could not save base calories burned per day.",
                         )
                     }
+                }
+            loadThemeSettings()
+        }
+    }
+
+    /** Seconds between tip rotations: `0` turns rotation off, otherwise 2-60. */
+    fun saveTipRotationSeconds(input: String) {
+        update { it.copy(settingsMessage = null) }
+        val seconds = input.trim().toIntOrNull()
+        if (seconds == null || (seconds != 0 && seconds !in NutritionSettingsStore.TIP_ROTATION_SECONDS_RANGE)) {
+            update { it.copy(settingsMessage = INVALID_TIP_ROTATION_MESSAGE) }
+            return
+        }
+        viewModelScope.launch {
+            runCatching { themeSettingsRepository.saveTipRotationSeconds(seconds) }
+                .onSuccess { update { it.copy(settingsMessage = "Saved tip rotation interval.") } }
+                .onFailure { throwable ->
+                    update { it.copy(settingsMessage = throwable.message ?: "Could not save the tip rotation interval.") }
                 }
             loadThemeSettings()
         }
@@ -792,10 +867,40 @@ class MealCaptureViewModel(
     }
 
     private fun update(block: (MealCaptureUiState) -> MealCaptureUiState) {
-        _uiState.update(block)
+        _uiState.update { current -> withDayScoreTips(block(current)) }
+    }
+
+    /**
+     * Re-derives [MealCaptureUiState.dayScoreTips] from whatever the update produced.
+     *
+     * Applied centrally rather than at each call site so no write can leave a tip list that
+     * disagrees with the meals, activities, goals or day it was derived from. Tips exist only for
+     * today with at least one logged meal; every other day gets an empty list.
+     */
+    private fun withDayScoreTips(next: MealCaptureUiState): MealCaptureUiState {
+        val tips = if (next.selectedDayOffset != 0) {
+            emptyList()
+        } else {
+            val meals = filterMealsForDay(next.savedMeals, 0, next.now, zone)
+            val activities = filterActivitiesForDay(next.savedActivities, 0, next.now, zone)
+            dayScoreTips(
+                totals = meals.toDailyNutritionTotals(),
+                goals = next.nutritionGoals,
+                activityBurnedKcal = activities.sumOf { it.caloriesBurnedKcal },
+                hasLoggedActivity = activities.isNotEmpty(),
+                localTime = LocalTime.ofInstant(next.now, zone),
+            )
+        }
+        // Keep the reworded text when nothing about the ranking moved, so a refresh survives a
+        // clock tick or an unrelated state change.
+        val kept = next.dayScoreTips
+        val unchanged = kept.size == tips.size && kept.zip(tips).all { (a, b) -> a.kind == b.kind }
+        return if (unchanged) next else next.copy(dayScoreTips = tips)
     }
 
     companion object {
+        private const val INVALID_TIP_ROTATION_MESSAGE =
+            "Enter 0 for no rotation, or a whole number of seconds between 2 and 60."
         private const val ESTIMATE_FAILED_MESSAGE = "Koog nutrition estimate failed."
         private const val BLANK_MEAL_DESCRIPTION_MESSAGE = "Meal description cannot be blank before saving."
 
@@ -813,6 +918,7 @@ class MealCaptureViewModel(
                     secretRepository = container.secretRepository,
                     backupRepository = container.backupRepository,
                     nutritionEstimator = container.nutritionEstimator,
+                    tipRewordingAgent = container.tipRewordingAgent,
                     initialSettings = container.themeSettingsRepository.currentSnapshot(),
                     initialRuntimeApiKey = container.defaultOpenAiApiKey,
                 )

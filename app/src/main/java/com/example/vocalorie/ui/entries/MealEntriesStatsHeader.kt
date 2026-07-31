@@ -1,5 +1,6 @@
 package com.example.vocalorie.ui.entries
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,10 +10,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
@@ -20,10 +32,13 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.size
 import com.example.vocalorie.ui.components.HeaderDropdownAction
 import com.example.vocalorie.ui.components.formatEnergy
 import com.example.vocalorie.ui.components.formatNullable
+import com.example.vocalorie.ui.entries.stats.DayScoreTip
 import com.example.vocalorie.ui.macroColors
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
@@ -37,6 +52,11 @@ internal fun SelectableStatsHeader(
     onChangeMenuExpandedChange: (Boolean) -> Unit,
     onSelectStatsWindow: (MealStatsWindowMode) -> Unit,
     onOpenDetail: () -> Unit,
+    dayScoreTips: List<DayScoreTip> = emptyList(),
+    tipRotationSeconds: Int = 0,
+    canRewordTips: Boolean = false,
+    rewordingInFlight: Boolean = false,
+    onRewordTips: () -> Unit = {},
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenDetail),
@@ -80,6 +100,13 @@ internal fun SelectableStatsHeader(
                     )
                 }
             }
+            DayScoreTipsSection(
+                tips = dayScoreTips,
+                rotationSeconds = tipRotationSeconds,
+                canReword = canRewordTips,
+                rewordingInFlight = rewordingInFlight,
+                onReword = onRewordTips,
+            )
             EnergySummaryRow(label = "Burned", value = burnedCaloriesKcal.formatEnergy())
             EnergySummaryRow(
                 label = "Balance",
@@ -116,4 +143,77 @@ private fun EnergySummaryRow(label: String, value: String, valueColor: androidx.
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodySmall, color = valueColor)
     }
+}
+
+/** Top three tips visible while collapsed; the rest only on tap. */
+private const val COLLAPSED_TIP_COUNT = 3
+private const val EXPANDED_TIP_COUNT = 5
+
+/**
+ * The actionable tips under the day score, rotating one at a time.
+ *
+ * The rotating index and the expanded flag are view state (design D7): only the ranked list crosses
+ * the state-holder boundary, so a five-second ticker never lands in a unit test. Renders nothing
+ * when there is nothing to say.
+ */
+@Composable
+internal fun DayScoreTipsSection(
+    tips: List<DayScoreTip>,
+    rotationSeconds: Int,
+    canReword: Boolean,
+    rewordingInFlight: Boolean,
+    onReword: () -> Unit,
+) {
+    if (tips.isEmpty()) return
+
+    var expanded by remember { mutableStateOf(false) }
+    var index by remember(tips) { mutableIntStateOf(0) }
+    val rotating = tips.size.coerceAtMost(COLLAPSED_TIP_COUNT)
+
+    LaunchedEffect(tips, rotationSeconds, expanded, rotating) {
+        if (expanded || rotationSeconds <= 0 || rotating < 2) return@LaunchedEffect
+        while (true) {
+            delay(rotationSeconds * 1_000L)
+            index = (index + 1) % rotating
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (expanded) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                tips.take(EXPANDED_TIP_COUNT).forEach { tip -> TipText(tip.text) }
+            }
+        } else {
+            Crossfade(targetState = tips[index.coerceIn(0, tips.lastIndex)], modifier = Modifier.weight(1f), label = "dayScoreTip") { tip ->
+                TipText(tip.text)
+            }
+        }
+        if (canReword) {
+            if (rewordingInFlight) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            } else {
+                IconButton(onClick = onReword, modifier = Modifier.size(24.dp)) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = "Reword the tips",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TipText(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.Medium,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }

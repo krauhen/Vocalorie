@@ -16,6 +16,7 @@ data class ThemeSettingsSnapshot(
     val baseCaloriesBurned: Int,
     val kcalPerStep: Double,
     val nutritionGoals: NutritionGoals,
+    val tipRotationSeconds: Int,
 )
 
 /**
@@ -47,6 +48,7 @@ class ThemeSettingsRepository(
         baseCaloriesBurned = nutritionSettings.getBaseCaloriesBurned(),
         kcalPerStep = nutritionSettings.getKcalPerStep(),
         nutritionGoals = nutritionSettings.getNutritionGoals(),
+        tipRotationSeconds = nutritionSettings.getTipRotationSeconds(),
     )
 
     suspend fun savePrimary(color: Color) = withContext(dispatcher) { store.savePrimary(color) }
@@ -73,6 +75,9 @@ class ThemeSettingsRepository(
 
     suspend fun saveBaseCaloriesBurned(value: Int) =
         withContext(dispatcher) { nutritionSettings.saveBaseCaloriesBurned(value) }
+
+    suspend fun saveTipRotationSeconds(value: Int) =
+        withContext(dispatcher) { nutritionSettings.saveTipRotationSeconds(value) }
 
     suspend fun saveKcalPerStep(value: Double) = withContext(dispatcher) { nutritionSettings.saveKcalPerStep(value) }
 

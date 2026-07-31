@@ -129,6 +129,9 @@ private fun SettingsContent(
     var kcalPer1000StepsInput by remember(state.kcalPerStep) {
         mutableStateOf((state.kcalPerStep * 1000).let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() })
     }
+    var tipRotationSecondsInput by remember(state.tipRotationSeconds) {
+        mutableStateOf(state.tipRotationSeconds.toString())
+    }
     var calorieGoalInput by remember(state.nutritionGoals.calorieGoalKcal) {
         mutableStateOf(state.nutritionGoals.calorieGoalKcal.toString())
     }
@@ -195,6 +198,33 @@ private fun SettingsContent(
                     onClick = { onEvent(SettingsEvent.SaveBaseCaloriesBurned(baseCaloriesBurnedInput)) },
                     enabled = enabled && baseCaloriesBurnedInput.isNotBlank(),
                 ) { Text("Save base burn") }
+            }
+            ListItem(
+                headlineContent = { Text("Day-score tip rotation") },
+                supportingContent = {
+                    Text(
+                        if (state.tipRotationSeconds == 0) {
+                            "Current: no rotation — top tip only"
+                        } else {
+                            "Current: every ${state.tipRotationSeconds} s"
+                        },
+                    )
+                },
+            )
+            OutlinedTextField(
+                value = tipRotationSecondsInput,
+                onValueChange = { tipRotationSecondsInput = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                label = { Text("Tip rotation seconds (0 = no rotation, else 2–60)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                enabled = enabled,
+            )
+            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { onEvent(SettingsEvent.SaveTipRotationSeconds(tipRotationSecondsInput)) },
+                    enabled = enabled && tipRotationSecondsInput.isNotBlank(),
+                ) { Text("Save tip rotation") }
             }
             ListItem(
                 headlineContent = { Text("Calories burned per 1,000 steps") },

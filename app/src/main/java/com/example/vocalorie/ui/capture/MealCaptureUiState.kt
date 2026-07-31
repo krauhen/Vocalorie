@@ -9,6 +9,7 @@ import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.settings.ThemeColors
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.ui.entries.EntriesTab
+import com.example.vocalorie.ui.entries.stats.DayScoreTip
 import com.example.vocalorie.ui.settings.SettingsUiState
 import com.example.vocalorie.ui.voice.GalleryImageAttachment
 import java.time.Instant
@@ -21,8 +22,9 @@ import java.time.Instant
  * change in full — including a running estimate's eventual result, the reviewed draft and its
  * attached photos.
  *
- * Nothing here is derived state that a composable could compute itself; each field is either user
- * input, observed persisted data, or the outcome of an operation.
+ * Almost nothing here is derived state that a composable could compute itself; each field is either
+ * user input, observed persisted data, or the outcome of an operation. The one exception is
+ * [dayScoreTips], and it is documented where it sits.
  */
 data class MealCaptureUiState(
     // --- Settings-derived, seeded synchronously so the first frame is not painted with defaults ---
@@ -31,6 +33,8 @@ data class MealCaptureUiState(
     val baseCaloriesBurned: Int,
     val kcalPerStep: Double,
     val nutritionGoals: NutritionGoals,
+    /** Seconds between day-score tip rotations; `0` means no rotation. */
+    val tipRotationSeconds: Int,
 
     /**
      * The wall clock the flow reads. Advanced by [MealCaptureViewModel.refreshNow] and by every
@@ -60,6 +64,14 @@ data class MealCaptureUiState(
     // --- Observed persisted data ---
     val savedMeals: List<SavedMeal> = emptyList(),
     val savedActivities: List<SavedActivity> = emptyList(),
+
+    // --- Day-score tips ---
+    /**
+     * The one derived aggregate here, deliberately (design D1): the LLM rewording path needs a
+     * repository and a scope, so the tip list cannot be owned by the composable that shows it.
+     */
+    val dayScoreTips: List<DayScoreTip> = emptyList(),
+    val tipsRewordingInFlight: Boolean = false,
 
     // --- Cached-meal approval ---
     val approvalMatch: CachedMealMatch? = null,
@@ -91,6 +103,15 @@ data class MealCaptureUiState(
             EntriesTab.ACTIVITIES -> activityThemeColors
         }
 
+    /**
+     * Whether the tips strip may offer its rewording refresh.
+     *
+     * A stored (or entered) OpenAI key is the whole gate: the app is BYOK, so without one the
+     * affordance would only ever produce a failure the user did not ask for.
+     */
+    val canRewordDayScoreTips: Boolean
+        get() = dayScoreTips.isNotEmpty() && (savedKeyLabel != null || runtimeApiKey.isNotBlank())
+
     /** Editors and overlays are read-only while an estimate or a save is in flight. */
     val isBusy: Boolean get() = isLoading || isSaving
 
@@ -115,6 +136,7 @@ data class MealCaptureUiState(
             baseCaloriesBurned = baseCaloriesBurned,
             kcalPerStep = kcalPerStep,
             nutritionGoals = nutritionGoals,
+            tipRotationSeconds = tipRotationSeconds,
             savedKeyLabel = savedKeyLabel,
             runtimeApiKey = runtimeApiKey,
             braveKeyLabel = braveKeyLabel,
