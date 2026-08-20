@@ -5,7 +5,7 @@ tags: [backlog, bugs, defect, scaling]
 
 # B2: Scaling does not scale quantity
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-fix-item-quantity-scaling
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/energy-balance/spec.md` plus whichever spec owns entry scaling (guess, not a commitment)
 

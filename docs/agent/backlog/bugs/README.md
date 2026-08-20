@@ -19,9 +19,12 @@ section before proposing — it replaces the guesswork in the raw notes, and in 
 
 ## Open defects
 
-- [B1 — quantity and amount on an item, redundant?](b1-item-quantity-vs-amount.md)
-- [B2 — scaling does not scale quantity](b2-scaling-ignores-quantity.md)
 - [B3 — tips show too eagerly and unfiltered](b3-tips-shown-when-not-needed.md)
 - [B4 — "Today" is stale across midnight](b4-today-stale-across-midnight.md)
 - [B5 — cache keeps duplicate meals](b5-cache-duplicates.md)
 - [B6 — visual clipping and mixed-language date labels](b6-visual-clipping-and-locale.md)
+
+## Promoted
+
+- [B1 — quantity and amount on an item, redundant?](b1-item-quantity-vs-amount.md) and
+  [B2 — scaling does not scale quantity](b2-scaling-ignores-quantity.md) → `openspec/changes/2026-08-20-fix-item-quantity-scaling`

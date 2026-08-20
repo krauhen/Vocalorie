@@ -5,7 +5,7 @@ tags: [backlog, bugs, data-model, meal-items]
 
 # B1: Quantity and amount on an item — redundant?
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-fix-item-quantity-scaling
 **Source:** personal note, 2026-08-20
 **Likely capability:** entry/meal item data model — `openspec/specs/meal-type-classification/spec.md` is the closest, but this may turn out to be a coding-guidance concern rather than a behaviour spec (guess, not a commitment)
 
