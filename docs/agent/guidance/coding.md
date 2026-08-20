@@ -1,3 +1,8 @@
+---
+description: Binding Vocalorie coding rules — Android/Kotlin style, app identity, and the eight enforced architecture rules covering layering, composables, threading and migrations.
+tags: [coding, architecture, kotlin, compose, layering, migrations]
+---
+
 # Coding guidance
 
 ## Android style

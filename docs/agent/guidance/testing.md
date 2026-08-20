@@ -1,8 +1,13 @@
+---
+description: Canonical Vocalorie verification commands plus the three binding test rules — pure-JVM unit tests, behaviour over source text, and extracted pure functions ship tested.
+tags: [testing, gradle, verification, jvm, room-migrations]
+---
+
 # Testing guidance
 
 ## Verification commands
 
-This is the canonical location for the verification command. `AGENTS.md` repeats it for convenience; if the two disagree, this file wins.
+This file is the canonical source for Vocalorie's verification commands. `AGENTS.md` is a router and does not restate them; if any other document disagrees with this file, this file wins.
 
 After any change:
 

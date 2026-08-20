@@ -54,10 +54,10 @@ See Section 10 for detailed quality scenarios.
 | Technical | UI framework fixed to Jetpack Compose + Material 3 | Established convention, not to be changed without explicit approval per `AGENTS.md` |
 | Technical | Persistence fixed to Room; schema changes must be additive `Migration` steps, never `fallbackToDestructiveMigration` | `AGENTS.md`, `VocalorieDatabase.java` (schema version 10) |
 | Technical | Meal parsing fixed to Koog (JetBrains agentic framework) against OpenAI models | `AGENTS.md`, `ai/KoogNutritionAgent.kt` |
-| Organizational | No CI/CD pipeline exists; verification is manual (`./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`, plus `connectedDebugAndroidTest` for schema changes) | No `.github/workflows` found in repo; command owned by `agentic/guidance/TESTING.md` |
+| Organizational | No CI/CD pipeline exists; verification is manual (`./gradlew :app:compileDebugKotlin :app:testDebugUnitTest`, plus `connectedDebugAndroidTest` for schema changes) | No `.github/workflows` found in repo; command owned by `docs/agent/guidance/testing.md` |
 | Organizational | Solo developer, no code review process, no release process — this is a personal tool, not a shipped product | Project nature |
 | Conventions | Package identity (namespace `com.example.vocalorie`, applicationId `app.vocalorie.personal`, app label "Vocalorie") must be preserved unless explicitly changed | `AGENTS.md` |
-| Conventions | Agent-facing operating rules live in `AGENTS.md` / `agentic/`; must be read before non-trivial changes | `AGENTS.md` |
+| Conventions | Agent-facing operating rules live in `AGENTS.md` / `docs/agent/`; must be read before non-trivial changes | `AGENTS.md` |
 | Legal/Privacy | API keys (OpenAI, Brave) and `local.properties`/`.env*` must never be committed | `AGENTS.md` |
 
 ---
@@ -194,7 +194,7 @@ No CI/CD pipeline, no release build signing, no store distribution. The release 
 
 ## 9. Architecture Decisions
 
-> Lightweight ADRs (Nygard format) for the decisions with lasting architectural impact, reconstructed from the current codebase and `AGENTS.md`. No `agentic/sessions/` records exist to cite as original decision context.
+> Lightweight ADRs (Nygard format) for the decisions with lasting architectural impact, reconstructed from the current codebase and `AGENTS.md`. No `docs/agent/sessions/` records exist to cite as original decision context.
 
 ### ADR-1: Use Koog against OpenAI for meal parsing, with a structured-output contract
 - **Status**: Accepted
@@ -287,7 +287,7 @@ Deliberately not done, with the reason. This table exists so a later audit does 
 | TOCTOU re-resolution in `requireSafeFetchUrl` is unaddressed — the guard resolves the host, then Ktor resolves it again independently | On a phone there is no cloud metadata service to reach, and the party choosing URLs is the app's own LLM, not an attacker. The vacuous DNS-failure pass and the unguarded redirect hops — the two exploitable gaps — were fixed. |
 | The 8-field nutrition tuple is still spelled out across the mappers and DTOs | The four suites that are the app's only data safety net construct these DTOs **positionally**, so a wrapper type would force test edits in the same commit as production changes — the exact situation in which a test gets "fixed" to match a bug. The value type was introduced only where a transposition is silent and identically typed (`EditableNutrition`). |
 | The tips strip crossfades inside a surface the `visual-baseline` capability screenshots | A rotating tip makes a pixel comparison of the stats header timing-dependent. Mitigated rather than removed: the tests assert the ranked list and the strip's presence, never the visible index, and setting the rotation interval to `0` stops all motion when a baseline is captured. |
-| Copy-contract tests still assert production **source text** rather than behaviour | Rewriting them as behaviour tests mostly depends on string resources we are not adding. Capped by policy instead: deprecated-but-tolerated, no new ones, and any source-grep test must resolve by filename and fail loudly (`agentic/guidance/TESTING.md`). |
+| Copy-contract tests still assert production **source text** rather than behaviour | Rewriting them as behaviour tests mostly depends on string resources we are not adding. Capped by policy instead: deprecated-but-tolerated, no new ones, and any source-grep test must resolve by filename and fail loudly (`docs/agent/guidance/testing.md`). |
 
 ---
 

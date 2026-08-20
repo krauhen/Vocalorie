@@ -10,14 +10,14 @@ context: |
 
   Layering is one-directional: UI -> state holder -> repository -> DAO. No `Context` and no DAO
   reference above the repository boundary. `AppContainer` wires the graph by hand; there is no DI
-  framework, no navigation library. Full rules: `agentic/guidance/CODING.md`. ADRs and the
+  framework, no navigation library. Full rules: `docs/agent/guidance/coding.md`. ADRs and the
   accepted-debt table: `docs/arc42.md`.
 
   Room migrations are additive only — never `fallbackToDestructiveMigration`. A schema bump also
   raises `BACKUP_SCHEMA_VERSION` and widens `SUPPORTED_BACKUP_SCHEMA_VERSIONS` in the same commit,
   or backups already exported stop importing.
 
-  Verification after a change (canonical: `agentic/guidance/TESTING.md`):
+  Verification after a change (canonical: `docs/agent/guidance/testing.md`):
     ./gradlew :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
   Plus, for schema/migration work:
     ./gradlew :app:compileDebugAndroidTestKotlin :app:connectedDebugAndroidTest --no-daemon
@@ -36,5 +36,5 @@ rules:
     - Cite the file and line a task changes.
     - End each group with an explicit verification task naming the command or the on-device check.
   spec:
-    - Specify observable behaviour, not build-time conventions — those belong in `agentic/guidance/`.
+    - Specify observable behaviour, not build-time conventions — those belong in `docs/agent/guidance/`.
     - Every requirement gets at least one WHEN/THEN scenario.
