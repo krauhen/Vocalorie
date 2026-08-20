@@ -9,6 +9,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
 const val MIN_ROLLING_STATS_MINUTES: Int = 15
@@ -242,8 +243,11 @@ private fun List<SavedMeal>.sumNutrition(): MealNutritionStats = fold(MealNutrit
     )
 }
 
-private fun dateLabel(dayOffset: Int, date: LocalDate): String = when (dayOffset) {
-    0 -> "Today · ${DateTimeFormatter.ofPattern("dd.MM.yyyy").format(date)}"
-    1 -> "Yesterday · ${DateTimeFormatter.ofPattern("dd.MM.yyyy").format(date)}"
-    else -> DateTimeFormatter.ofPattern("dd.MM.yyyy").format(date)
+private fun dateLabel(dayOffset: Int, date: LocalDate): String {
+    val formatted = DateTimeFormatter.ofPattern("dd.MM.yyyy", Locale.getDefault()).format(date)
+    return when (dayOffset) {
+        0 -> "Today · $formatted"
+        1 -> "Yesterday · $formatted"
+        else -> formatted
+    }
 }

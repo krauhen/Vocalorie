@@ -4,7 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -139,9 +142,15 @@ fun MealEntriesScreen(
             },
             modifier = Modifier.fillMaxSize().statusBarsPadding(),
         ) {
+        // The action buttons are drawn over the list, so reserve their block, the gap they keep from
+        // the screen edge, one row gap, and the navigation-bar inset the buttons already apply.
+        val actionButtonReserve = ENTRIES_ACTION_BUTTON_BLOCK_HEIGHT +
+            ENTRIES_ACTION_BUTTON_BOTTOM_PADDING +
+            14.dp +
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 116.dp),
+            contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = actionButtonReserve),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             item {
@@ -227,7 +236,7 @@ fun MealEntriesScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .navigationBarsPadding()
-                .padding(end = 24.dp, bottom = 20.dp),
+                .padding(end = 24.dp, bottom = ENTRIES_ACTION_BUTTON_BOTTOM_PADDING),
         ) {
             when (selectedTab) {
                 EntriesTab.MEALS -> voiceButton()
@@ -239,7 +248,7 @@ fun MealEntriesScreen(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .navigationBarsPadding()
-                .padding(start = 24.dp, bottom = 20.dp),
+                .padding(start = 24.dp, bottom = ENTRIES_ACTION_BUTTON_BOTTOM_PADDING),
         ) { SettingsActionButton(onClick = onOpenSettings) }
     }
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,12 +19,18 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import java.time.Duration
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+
+// The calorie plot's height, and the line-box height of the labelSmall axis labels beside it.
+private val PLOT_HEIGHT: Dp = 42.dp
+private val AXIS_LABEL_LINE_HEIGHT: Dp = 16.dp
 
 @Composable
 internal fun StatsHistogramSeparator() {
@@ -67,8 +74,11 @@ internal fun CaloriesHistogram(buckets: List<MealCaloriesBucket>) {
             )
         }
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Three labelSmall line boxes need more room than the 42 dp plot they name, so the label
+            // column is one line box taller and the plot is inset by half of that. Each label then
+            // centres on the gridline it names instead of overflowing the column and being clipped.
             Column(
-                modifier = Modifier.height(42.dp),
+                modifier = Modifier.height(PLOT_HEIGHT + AXIS_LABEL_LINE_HEIGHT),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End,
             ) {
@@ -76,8 +86,11 @@ internal fun CaloriesHistogram(buckets: List<MealCaloriesBucket>) {
                 Text(midTickCalories.formatCaloriesTick(), style = MaterialTheme.typography.labelSmall, color = labelColor)
                 Text("0", style = MaterialTheme.typography.labelSmall, color = labelColor)
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Canvas(modifier = Modifier.fillMaxWidth().height(42.dp)) {
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = AXIS_LABEL_LINE_HEIGHT / 2),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Canvas(modifier = Modifier.fillMaxWidth().height(PLOT_HEIGHT)) {
                     if (buckets.isEmpty()) return@Canvas
 
                     val gap = 1.dp.toPx()
@@ -129,15 +142,19 @@ internal fun CaloriesHistogram(buckets: List<MealCaloriesBucket>) {
     }
 }
 
-private data class HistogramTimeLabels(
+internal data class HistogramTimeLabels(
     val start: String,
     val midpoint: String?,
     val end: String,
 )
 
-private fun formatHistogramTimeLabels(buckets: List<MealCaloriesBucket>): HistogramTimeLabels {
+internal fun formatHistogramTimeLabels(
+    buckets: List<MealCaloriesBucket>,
+    locale: Locale = Locale.getDefault(),
+    zone: ZoneId = ZoneId.systemDefault(),
+): HistogramTimeLabels {
     if (buckets.isEmpty()) return HistogramTimeLabels("00:00", null, "23:59")
-    val formatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    val formatter = DateTimeFormatter.ofPattern("HH:mm", locale).withZone(zone)
     val start = buckets.first().startInclusive
     val end = buckets.last().end.minusSeconds(60)
     val midpoint = start.plusMillis(Duration.between(start, buckets.last().end).toMillis() / 2)

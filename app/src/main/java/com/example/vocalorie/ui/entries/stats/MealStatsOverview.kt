@@ -43,9 +43,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
+import java.util.Locale
 import kotlin.math.roundToInt
 
-private val heatmapDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM")
+// Numeric on purpose: an abbreviated month name would read differently at the two ends of one row,
+// because CLDR gives some short months a trailing period and others none (`Mai` vs `Aug.`). The
+// pattern follows the day navigator's `dd.MM.yyyy`, and the locale is named rather than implicit.
+internal fun heatmapRangeLabel(date: LocalDate, locale: Locale = Locale.getDefault()): String =
+    DateTimeFormatter.ofPattern("dd.MM.", locale).format(date)
 
 private val HeatmapCellShape = RoundedCornerShape(2.dp)
 
@@ -377,7 +382,7 @@ private fun buildHeatmapGrid(
 
     return HeatmapGrid(
         columns = columns,
-        firstLabel = startDate.format(heatmapDateFormatter),
-        lastLabel = today.format(heatmapDateFormatter),
+        firstLabel = heatmapRangeLabel(startDate),
+        lastLabel = heatmapRangeLabel(today),
     )
 }
