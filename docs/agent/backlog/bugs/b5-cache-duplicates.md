@@ -5,7 +5,7 @@ tags: [backlog, bugs, defect, meal-caching]
 
 # B5: Cache keeps duplicate meals
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-fix-cache-key-normalization
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/meal-caching/spec.md` (guess, not a commitment)
 

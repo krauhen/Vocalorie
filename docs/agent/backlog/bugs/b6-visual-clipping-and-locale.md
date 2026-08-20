@@ -5,7 +5,7 @@ tags: [backlog, bugs, defect, ui, visual-baseline]
 
 # B6: Visual clipping and mixed-language date labels
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-fix-entries-visual-clipping-and-locale
 **Source:** on-device observation during the 2026-08-20 backlog investigation (not a personal note)
 **Likely capability:** `openspec/specs/visual-baseline/spec.md` plus
 `openspec/specs/ui-responsiveness/spec.md` (guess, not a commitment)
@@ -28,5 +28,15 @@ Samsung Galaxy S23 (SM_S911B), installed debug build of 2026-07-31, entries scre
 - Does the app intend a fixed German locale, or the system locale?
 
 ## Notes
-Screenshots only; not reproduced on another device or window size, and no source investigation
-done yet. Lowest severity of the captured defects — cosmetic, no data effect.
+Screenshots only; not reproduced on another device or window size. Lowest severity of the captured
+defects — cosmetic, no data effect.
+
+## Investigation (2026-08-20)
+Done as part of the promotion; the file:line root causes are in
+`openspec/changes/2026-08-20-fix-entries-visual-clipping-and-locale/proposal.md`. In short: the FABs
+are hand-placed children of the screen's root `Box` with `navigationBarsPadding()`
+(`ui/entries/MealEntriesScreen.kt:226-243`) while the list reserves a hardcoded `bottom = 116.dp`
+and no insets (`:142-145`); the chart's y-axis label column shares the plot's exact 42 dp height at
+the card's bottom edge (`ui/entries/MealEntriesCharts.kt:70-80`); and the two heatmap labels come
+from **one** locale-less formatter (`ui/entries/stats/MealStatsOverview.kt:48, 380-381`), so
+`18 Mai` vs `20 Aug.` is CLDR month-abbreviation data, not two disagreeing formatters.

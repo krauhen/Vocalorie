@@ -5,7 +5,7 @@ tags: [backlog, bugs, defect, day-score-tips]
 
 # B3: Tips show too eagerly and unfiltered
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-gate-day-score-tips-and-live-day-rollover
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/day-score-tips/spec.md` (guess, not a commitment)
 

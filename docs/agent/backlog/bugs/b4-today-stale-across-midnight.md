@@ -5,7 +5,7 @@ tags: [backlog, bugs, defect, date-selection]
 
 # B4: "Today" is stale across midnight
 
-**Status:** investigated
+**Status:** promoted → openspec/changes/2026-08-20-gate-day-score-tips-and-live-day-rollover
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/entry-day-targeting/spec.md` (guess, not a commitment)
 
