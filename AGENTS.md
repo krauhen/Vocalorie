@@ -7,7 +7,7 @@ This file is a router, not the operating manual. It carries no rules of its own:
 # Where to read more
 
 ### `docs/agent/hard-rules.md`
-**Read ALWAYS, before any task.** The mandatory context-loading sequence and the universal safety boundaries that apply to every change. Tags: `safety, context-loading, boundaries, secrets, always-read`.
+**Read ALWAYS, before any task.** The mandatory context-loading sequence, the plan-handoff rule (plans are saved and handed over, never executed by the session that wrote them), and the universal safety boundaries that apply to every change. Tags: `safety, context-loading, boundaries, secrets, planning, always-read`.
 **Skip if:** never skip.
 
 ### `docs/agent/README.md`

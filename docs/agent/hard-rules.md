@@ -1,6 +1,6 @@
 ---
-description: Always-read rules for Vocalorie: the mandatory context-loading sequence before any task, and the universal safety boundaries that apply to every change.
-tags: [safety, context-loading, boundaries, secrets, always-read]
+description: Always-read rules for Vocalorie: the mandatory context-loading sequence before any task, the plan-handoff rule, and the universal safety boundaries that apply to every change.
+tags: [safety, context-loading, boundaries, secrets, planning, always-read]
 ---
 
 # Hard rules
@@ -27,6 +27,15 @@ If the correct files are unclear, read these defaults first:
 
 Detailed per-task-type reading lists live in `docs/agent/guidance/task-routing.md`.
 
+## Plan handoff
+
+Plans are saved and handed over, never executed by the session that wrote them.
+
+- Write the plan to a file under `~/.claude/plans/`. Do not create a plan directory inside this repository.
+- End the turn with one line naming what the plan covers, then the absolute path alone in a fenced code block.
+- Do not offer to implement, and do not implement. The next session picks the plan up cold.
+- Make the plan self-contained for that cold start: name the concrete files under `app/src/main/java/com/example/vocalorie/`, the guidance shards the implementer must read (`docs/agent/guidance/coding.md`, `docs/agent/guidance/testing.md`), the relevant capability under `openspec/specs/`, the decisions already settled with their rejected alternatives, and the verification commands from `docs/agent/guidance/testing.md`.
+
 ## Universal safety rules
 
 These rules always apply.
@@ -43,5 +52,6 @@ These rules always apply.
 - Prefer minimal, focused changes.
 - Ask before non-trivial or ambiguous changes.
 - Do not create or modify signing keys, certificates, or private data artifacts.
+- Do not begin implementing a plan in the session that produced it.
 - Inspect the working tree before editing; this is a Git repository.
 - Keep documentation claims aligned with implemented Vocalorie behavior.
