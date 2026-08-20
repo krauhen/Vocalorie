@@ -44,44 +44,28 @@ docs/agent/
 │   ├── coding.md
 │   ├── testing.md
 │   └── workflow.md
-├── sessions/
-│   ├── raw/
-│   └── summaries/
-└── knowledge/
+└── backlog/
     ├── features/
-    ├── todos/
-    └── requests/
+    └── bugs/
 ```
 
 ### Directory purposes
 
 - `hard-rules.md` stores the always-read rules: context loading and universal safety boundaries.
 - `guidance/` stores durable operating rules split by topic. Read from it before changing documentation, code, tests, or workflows.
-- `knowledge/features/` stores feature intent, design assumptions, behavior, constraints, implementation ideas, and verification strategy.
-- `knowledge/todos/` records deferred defects and audits, one file per item; entries are not authorization to implement.
-- `knowledge/requests/` records rough feature asks, one file per item, before promotion to an `openspec/changes/<id>/` proposal.
-- `sessions/summaries/` stores condensed reusable handoffs. Use summaries first when restoring context from prior work.
-- `sessions/raw/` stores near-raw session records when summaries are not detailed enough.
+- `backlog/features/` records rough feature asks and pending audits, one file per item, before promotion to an `openspec/changes/<id>/` proposal.
+- `backlog/bugs/` records known defects, one file per item; entries are not authorization to implement.
 
 ### Naming conventions
 
-Session files:
+Backlog items are flat files, one per item:
 
 ```text
-YYYY-MM-DD__ticket-or-topic__short-slug.md
+f<n>-<slug>.md    (features/)
+b<n>-<slug>.md    (bugs/)
 ```
 
-Feature directories:
-
-```text
-<ticket-id>__<feature-slug>/
-```
-
-If there is no ticket ID:
-
-```text
-<feature-slug>/
-```
+Numbers are never reused, even after an item is promoted or deleted.
 
 ## Current snapshot
 

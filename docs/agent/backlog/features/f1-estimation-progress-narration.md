@@ -1,6 +1,6 @@
 ---
 description: Show what the estimation is doing — tool calls and steps — as a small live-updating line, like modern LLM thinking indicators.
-tags: [knowledge, requests, estimation, ux]
+tags: [backlog, features, estimation, ux]
 ---
 
 # F1: Narrate estimation progress

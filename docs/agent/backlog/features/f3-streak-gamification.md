@@ -1,6 +1,6 @@
 ---
 description: Strengthen streaks into a real incentive rather than a passive counter.
-tags: [knowledge, requests, gamification, streaks]
+tags: [backlog, features, gamification, streaks]
 ---
 
 # F3: Better streak gamification and incentives

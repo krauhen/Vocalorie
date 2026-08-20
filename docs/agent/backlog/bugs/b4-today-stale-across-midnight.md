@@ -1,6 +1,6 @@
 ---
 description: After midnight the "Today" selection still points at yesterday until a save forces it to refresh.
-tags: [knowledge, todos, defect, date-selection]
+tags: [backlog, bugs, defect, date-selection]
 ---
 
 # B4: "Today" is stale across midnight

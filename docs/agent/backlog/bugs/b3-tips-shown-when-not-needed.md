@@ -1,6 +1,6 @@
 ---
 description: Day-score tips show for any imperfect score; they should appear only below score 50 and only the highest-impact ones.
-tags: [knowledge, todos, defect, day-score-tips]
+tags: [backlog, bugs, defect, day-score-tips]
 ---
 
 # B3: Tips show too eagerly and unfiltered

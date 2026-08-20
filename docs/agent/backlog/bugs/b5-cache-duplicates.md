@@ -1,6 +1,6 @@
 ---
 description: The meal cache retains duplicate items, likely because a time or date value leaks into the cache key.
-tags: [knowledge, todos, defect, meal-caching]
+tags: [backlog, bugs, defect, meal-caching]
 ---
 
 # B5: Cache keeps duplicate items

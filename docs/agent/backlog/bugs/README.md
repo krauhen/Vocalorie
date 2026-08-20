@@ -1,12 +1,12 @@
 ---
-description: Deferred Vocalorie defects and audits; entries here are a record, not authorization to implement.
-tags: [knowledge, todos]
+description: Deferred Vocalorie defects; entries here are a record, not authorization to implement.
+tags: [backlog, bugs]
 ---
 
-# Todos
+# Bugs
 
-Known defects and pending audits live here, one file per item. A file in this directory is a
-record, not a decision and not authorization to implement.
+Known defects live here, one file per item. A file in this directory is a record, not a decision
+and not authorization to implement.
 
 Lifecycle: captured here → promoted to an `openspec/changes/<id>/` proposal when chosen → the
 file marked `Status: promoted → openspec/changes/<id>` or deleted, since git holds the history.
@@ -20,7 +20,3 @@ proposal, not a commitment.
 - [B3 — tips show too eagerly and unfiltered](b3-tips-shown-when-not-needed.md)
 - [B4 — "Today" is stale across midnight](b4-today-stale-across-midnight.md)
 - [B5 — cache keeps duplicate items](b5-cache-duplicates.md)
-
-## Open audits
-
-- [F2 — audit the code against the target profile](f2-target-profile-audit.md)

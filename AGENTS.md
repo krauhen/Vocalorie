@@ -40,15 +40,10 @@ How work is sequenced — keeping architecture rules and ADRs in step, recording
 **Read when:** changing an architectural rule, an ADR, or project documentation.
 **Skip if:** the change alters no rule and no architectural decision.
 
-### `docs/agent/knowledge/` — `features/`, `requests/`, `todos/`
-Durable project knowledge: feature intent and constraints, rough asks not yet promoted, and deferred follow-ups. Tags: `knowledge, features, requests, todos`.
-**Read when:** the task relates to existing feature or preparation knowledge, or captures a new request or TODO.
-**Skip if:** the task is self-contained. `requests/` and `todos/` currently hold the captured backlog (three feature asks, five known defects, one audit); `features/` is still a placeholder.
-
-### `docs/agent/sessions/` — `summaries/`, `raw/`
-Session records: condensed handoffs first, near-raw records when a summary is not enough. Tags: `sessions, handoffs, history`.
-**Read when:** the task continues or references previous work.
-**Skip if:** the task is new and unrelated to prior sessions. Currently placeholders.
+### `docs/agent/backlog/` — `features/`, `bugs/`
+The captured backlog: feature asks and pending audits in `features/`, known defects in `bugs/`. Tags: `backlog, features, bugs`.
+**Read when:** the task relates to a captured ask or a known defect, or captures a new one.
+**Skip if:** the task is self-contained. Currently holds four feature/audit items and five defects.
 
 <!-- Adding docs: create docs/agent/<topic>/<section>.md with frontmatter (description, tags), then add
      a signpost entry here. Keep AGENTS.md itself to the header and the index. -->

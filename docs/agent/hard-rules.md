@@ -14,10 +14,8 @@ Before starting any task, follow this sequence:
 1. Identify the task type.
 2. Read `docs/agent/README.md`.
 3. Read the matching files under `docs/agent/guidance/`.
-4. If the task relates to existing feature, product, or preparation knowledge, read the relevant files under `docs/agent/knowledge/`.
-5. If the task continues or references a previous coding/product session, read the relevant files under `docs/agent/sessions/summaries/`.
-6. If the session summary is insufficient, read the relevant raw session under `docs/agent/sessions/raw/`.
-7. Only then start planning or execution.
+4. If the task relates to a captured feature ask, audit, or known defect, read the relevant files under `docs/agent/backlog/`.
+5. Only then start planning or execution.
 
 If the correct files are unclear, read these defaults first:
 
@@ -25,7 +23,7 @@ If the correct files are unclear, read these defaults first:
 - `docs/agent/guidance/coding.md`
 - `docs/agent/guidance/testing.md`
 
-`docs/agent/guidance/coding.md` and `docs/agent/guidance/testing.md` carry the binding architecture and testing rules — read them before any code or test change. `docs/agent/knowledge/*` and `docs/agent/sessions/*` are currently empty placeholders. For behaviour detail beyond those rules, prefer `openspec/specs/` and the actual source under `app/src/main/java/com/example/vocalorie/` with its tests under `app/src/test/java/com/example/vocalorie/`.
+`docs/agent/guidance/coding.md` and `docs/agent/guidance/testing.md` carry the binding architecture and testing rules — read them before any code or test change. For behaviour detail beyond those rules, prefer `openspec/specs/` and the actual source under `app/src/main/java/com/example/vocalorie/` with its tests under `app/src/test/java/com/example/vocalorie/`.
 
 Detailed per-task-type reading lists live in `docs/agent/guidance/task-routing.md`.
 

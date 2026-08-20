@@ -1,6 +1,6 @@
 ---
 description: Open question whether a meal item needs both a quantity and an amount field, or whether the two are redundant.
-tags: [knowledge, todos, data-model, meal-items]
+tags: [backlog, bugs, data-model, meal-items]
 ---
 
 # B1: Quantity and amount on an item — redundant?

@@ -57,12 +57,12 @@ Use this list to decide which files to read for a given task type. The always-re
 
 ## New feature request capture
 
-- Relevant files under `docs/agent/knowledge/requests/`.
+- Relevant files under `docs/agent/backlog/features/`.
 - `docs/agent/guidance/workflow.md`
 
-## TODO/follow-up capture
+## Bug or follow-up capture
 
-- Relevant files under `docs/agent/knowledge/todos/`.
+- Relevant files under `docs/agent/backlog/bugs/`.
 - `docs/agent/guidance/workflow.md`
 
 ## Architecture documentation or ADR change

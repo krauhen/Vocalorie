@@ -1,6 +1,6 @@
 ---
 description: Use a proper date-picker widget for date selection in edit mode instead of the current control.
-tags: [knowledge, requests, ux, date-selection]
+tags: [backlog, features, ux, date-selection]
 ---
 
 # F4: Date-picker widget in edit mode

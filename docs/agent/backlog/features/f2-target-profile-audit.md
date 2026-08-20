@@ -1,6 +1,6 @@
 ---
 description: Audit whether the app's goals, scoring and activity handling match the user's stated nutrition and training target profile.
-tags: [knowledge, todos, audit, nutrition-goals]
+tags: [backlog, features, audit, nutrition-goals]
 ---
 
 # F2: Audit the code against the target profile

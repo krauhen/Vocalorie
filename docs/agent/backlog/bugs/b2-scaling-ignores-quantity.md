@@ -1,6 +1,6 @@
 ---
 description: Scaling an entry does not scale its quantity, so a scaled meal reports an inconsistent size.
-tags: [knowledge, todos, defect, scaling]
+tags: [backlog, bugs, defect, scaling]
 ---
 
 # B2: Scaling does not scale quantity

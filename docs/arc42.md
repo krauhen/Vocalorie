@@ -194,7 +194,7 @@ No CI/CD pipeline, no release build signing, no store distribution. The release 
 
 ## 9. Architecture Decisions
 
-> Lightweight ADRs (Nygard format) for the decisions with lasting architectural impact, reconstructed from the current codebase and `AGENTS.md`. No `docs/agent/sessions/` records exist to cite as original decision context.
+> Lightweight ADRs (Nygard format) for the decisions with lasting architectural impact, reconstructed from the current codebase and `AGENTS.md`. No records of the original decision context exist to cite.
 
 ### ADR-1: Use Koog against OpenAI for meal parsing, with a structured-output contract
 - **Status**: Accepted
