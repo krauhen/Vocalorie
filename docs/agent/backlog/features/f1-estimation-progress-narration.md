@@ -5,7 +5,7 @@ tags: [backlog, features, estimation, ux]
 
 # F1: Narrate estimation progress
 
-**Status:** investigated
+**Status:** promoted → `openspec/changes/2026-08-20-narrate-estimation-progress`
 **Source:** personal note, 2026-08-20
 **Likely capability:** a new capability spec; touches `openspec/specs/voice-input/spec.md`, `openspec/specs/image-attachment/spec.md`, `openspec/specs/food-sources/spec.md` (guess, not a commitment)
 

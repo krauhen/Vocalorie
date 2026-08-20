@@ -5,7 +5,7 @@ tags: [backlog, features, gamification, streaks]
 
 # F3: Better streak gamification and incentives
 
-**Status:** investigated
+**Status:** deferred — blocked on F2 (see `## Deferred` below)
 **Source:** personal note, 2026-08-20
 **Likely capability:** a new capability spec; adjacent to `openspec/specs/day-nutrition-score/spec.md`, `openspec/specs/meal-stats-overview/spec.md` (guess, not a commitment)
 
@@ -49,3 +49,28 @@ their all-time record with no visible next target. That is the concrete gap this
 ## Files
 `ui/entries/stats/MealStatsCalculator.kt`, `ui/entries/stats/MealStats.kt`,
 `ui/entries/stats/MealStatsOverview.kt`, plus new persistence if state must survive.
+
+## Deferred (2026-08-20)
+
+**Status: deferred, not proposed.** Blocked on F2, and deliberately so.
+
+- **The central decision depends on F2's answer.** "What counts as a streak day" is only answerable
+  once the goal model is settled. F2's findings ([f2-findings.md](f2-findings.md)) show targets are
+  point values with tolerance bands, and that carbs is a fixed percentage while fat is the derived
+  remainder — the inverse of the target profile. Two of the gaps F2 names (range-valued targets, and
+  carbs as the remainder) would reshape `NutritionGoals` and the adherence curves that read it. A
+  qualifying-day rule defined against goals is defined against whichever model survives that.
+- **Proposing now can destroy the user's record.** A day currently counts if *anything* was logged
+  (`ui/entries/stats/MealStatsCalculator.kt:227-236`). Requiring a score or a goal hit would recompute
+  the live `52d Streak / 52d Best` reading down to whatever the stricter rule yields, on first launch,
+  with no warning and no way back — the recomputation is derived on every read, so there is no stored
+  history to fall back on.
+- **The persistence question is settled but not the trigger for it.** A persisted milestone needs a
+  Room migration plus a `BACKUP_SCHEMA_VERSION` bump and a widened `SUPPORTED_BACKUP_SCHEMA_VERSIONS`
+  in the same commit; a purely derived milestone display needs neither. Which one is right follows
+  from the qualifying-day decision, so it stays open too.
+
+**Call for the next session, on evidence.** If the goal model is rebuilt for range-valued targets,
+F3 should be reconsidered as part of that change rather than as a standalone one — the qualifying-day
+rule and the range definition are then the same decision. If the goal model is left as it is, F3 can
+stand alone with a qualifying-day rule stated against the current point targets.

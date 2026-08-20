@@ -43,7 +43,7 @@ How work is sequenced — keeping architecture rules and ADRs in step, recording
 ### `docs/agent/backlog/` — `features/`, `bugs/`
 The captured backlog: feature asks and pending audits in `features/`, known defects in `bugs/`. Tags: `backlog, features, bugs`.
 **Read when:** the task relates to a captured ask or a known defect, or captures a new one.
-**Skip if:** the task is self-contained. Currently holds four feature/audit items, four open defects, and two promoted to an OpenSpec change.
+**Skip if:** the task is self-contained. Currently holds one deferred feature ask, one completed audit with its findings, and defects both open and promoted; each README lists which is which.
 
 <!-- Adding docs: create docs/agent/<topic>/<section>.md with frontmatter (description, tags), then add
      a signpost entry here. Keep AGENTS.md itself to the header and the index. -->

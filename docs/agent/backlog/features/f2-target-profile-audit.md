@@ -5,7 +5,7 @@ tags: [backlog, features, audit, nutrition-goals]
 
 # F2: Audit the code against the target profile
 
-**Status:** captured
+**Status:** audited — findings in [f2-findings.md](f2-findings.md)
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/nutrition-goals/spec.md`, `openspec/specs/energy-balance/spec.md`, `openspec/specs/activity-logging/spec.md` (guess, not a commitment)
 

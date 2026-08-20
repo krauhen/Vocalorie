@@ -5,7 +5,7 @@ tags: [backlog, features, ux, date-selection]
 
 # F4: Date-picker widget in edit mode
 
-**Status:** investigated
+**Status:** promoted → `openspec/changes/2026-08-20-date-time-picker-in-entry-editors`
 **Source:** personal note, 2026-08-20
 **Likely capability:** `openspec/specs/entry-day-targeting/spec.md`, `openspec/specs/ui-responsiveness/spec.md` (guess, not a commitment)
 
