@@ -85,8 +85,10 @@ fun portionScaleFactor(recipeMakes: String, ate: String): BigDecimal? {
 
 fun EditableMealDraft.withItemsScaledByFactor(factor: BigDecimal): EditableMealDraft = copy(
     items = items.map { item ->
+        val scaledAmount = item.amountGml.scaledEditableNumber(factor)
         item.copy(
-            amountGml = item.amountGml.scaledEditableNumber(factor),
+            quantity = item.quantity.scaledQuantityLabel(factor, scaledAmount),
+            amountGml = scaledAmount,
             caloriesKcal = item.caloriesKcal.scaledEditableNumber(factor),
             proteinG = item.proteinG.scaledEditableNumber(factor),
             carbsG = item.carbsG.scaledEditableNumber(factor),
@@ -105,6 +107,35 @@ private fun String.scaledEditableNumber(factor: BigDecimal): String {
     val number = toEditableBigDecimalOrNull() ?: return this
     return number.multiply(factor).toEditableNumberText()
 }
+
+/**
+ * Scales a display label such as `"2 eggs"` or `"1 Scheibe"`: the leading number moves, the
+ * trailing words stay verbatim. A label with no leading number is replaced by one derived from the
+ * already-scaled [scaledAmountGml], whose unit is inferred from the original text — the model
+ * carries no unit for `amountGml`. With nothing to scale and nothing to derive from, the label is
+ * left alone rather than blanked.
+ */
+private fun String.scaledQuantityLabel(factor: BigDecimal, scaledAmountGml: String): String {
+    val trimmed = trim()
+    val leadingNumber = quantityLabelNumberPattern.find(trimmed)
+    if (leadingNumber != null) {
+        val number = leadingNumber.value.toEditableBigDecimalOrNull()
+        if (number != null) {
+            val scaled = number.multiply(factor).setScale(1, RoundingMode.HALF_UP)
+            return scaled.toEditableNumberText() + trimmed.substring(leadingNumber.value.length)
+        }
+    }
+    val amount = scaledAmountGml.toPositiveEditableBigDecimalOrNull() ?: return this
+    return "${amount.toEditableNumberText()} ${inferredQuantityUnit()}"
+}
+
+private fun String.inferredQuantityUnit(): String =
+    if (quantityLabelMilliliterPattern.containsMatchIn(this)) "ml" else "g"
+
+private val quantityLabelNumberPattern = Regex("""^[+-]?\d+(?:[.,]\d+)?""")
+
+/** Matches `ml` or `l` only as a standalone token, so "Milch" and "Salat" do not read as litres. */
+private val quantityLabelMilliliterPattern = Regex("""(?<![\p{L}\d])m?l(?![\p{L}\d])""", RegexOption.IGNORE_CASE)
 
 private fun String.toEditableBigDecimalOrZero(): BigDecimal = trim()
     .replace(',', '.')

@@ -70,6 +70,34 @@ class MealCacheTest {
         assertEquals("100", match.draft.caloriesKcal)
     }
 
+    @Test
+    fun reusedCachedMealScalesItsItemQuantityLabels() {
+        val cache = listOf(
+            mealDraft(query = "Buttermilch 200g", itemQuantity = "200 g", amountGml = 200.0)
+                .toCachedMealEntity()!!,
+        )
+
+        val match = findCachedMealMatch(cache, "Buttermilch 100g")
+
+        assertNotNull(match)
+        assertEquals("100 g", match!!.draft.items.single().quantity)
+        assertEquals("100", match.draft.items.single().amountGml)
+    }
+
+    @Test
+    fun reusedCachedMealDerivesADescriptiveQuantityFromTheScaledAmount() {
+        val cache = listOf(
+            mealDraft(query = "Buttermilch 100g", itemQuantity = "eine Handvoll", amountGml = 100.0)
+                .toCachedMealEntity()!!,
+        )
+
+        val match = findCachedMealMatch(cache, "Buttermilch 50g")
+
+        assertNotNull(match)
+        assertEquals("50 g", match!!.draft.items.single().quantity)
+        assertEquals("50", match.draft.items.single().amountGml)
+    }
+
     // --- Separation from history (B4) & write policy ---
 
     @Test
@@ -215,6 +243,7 @@ class MealCacheTest {
     private fun mealDraft(
         query: String,
         itemName: String = query,
+        itemQuantity: String = query,
         amountGml: Double = 100.0,
         caloriesKcal: Double = 10.0,
         itemAmountGml: Double? = amountGml,
@@ -226,7 +255,7 @@ class MealCacheTest {
         items = listOf(
             EditableFoodItem(
                 name = itemName,
-                quantity = query,
+                quantity = itemQuantity,
                 amountGml = itemAmountGml?.toEdit() ?: "",
                 caloriesKcal = itemCaloriesKcal.toEdit(),
                 proteinG = "",

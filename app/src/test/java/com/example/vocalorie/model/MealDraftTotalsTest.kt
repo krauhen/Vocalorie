@@ -77,7 +77,8 @@ class MealDraftTotalsTest {
 
         val scaled = draft.withItemsScaledByPortion(recipeMakes = "4", ate = "1")
 
-        assertEquals("whole recipe amount", scaled!!.items.first().quantity)
+        // A label with no leading number is re-derived from the scaled amount (meal-item-quantity).
+        assertEquals("100 g", scaled!!.items.first().quantity)
         assertEquals("https://example.com/item", scaled.items.first().source)
         assertEquals("100", scaled.items.first().amountGml)
         assertEquals("200", scaled.items.first().caloriesKcal)
