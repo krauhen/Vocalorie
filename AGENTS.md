@@ -43,7 +43,7 @@ How work is sequenced — keeping architecture rules and ADRs in step, recording
 ### `docs/agent/knowledge/` — `features/`, `requests/`, `todos/`
 Durable project knowledge: feature intent and constraints, rough asks not yet promoted, and deferred follow-ups. Tags: `knowledge, features, requests, todos`.
 **Read when:** the task relates to existing feature or preparation knowledge, or captures a new request or TODO.
-**Skip if:** the task is self-contained. Currently placeholders.
+**Skip if:** the task is self-contained. `requests/` and `todos/` currently hold the captured backlog (three feature asks, five known defects, one audit); `features/` is still a placeholder.
 
 ### `docs/agent/sessions/` — `summaries/`, `raw/`
 Session records: condensed handoffs first, near-raw records when a summary is not enough. Tags: `sessions, handoffs, history`.
