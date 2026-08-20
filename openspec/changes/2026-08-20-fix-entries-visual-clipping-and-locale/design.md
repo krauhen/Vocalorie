@@ -1,6 +1,6 @@
 ## Context
 
-B6 (`docs/agent/backlog/bugs/b6-visual-clipping-and-locale.md`) was captured as a device observation with no source investigation. The investigation is now done and its findings are cited in `proposal.md`: a hand-placed FAB layer over a list with a magic bottom padding, a y-axis label column sharing the plot's exact height at the bottom edge of a card, and one locale-less `d MMM` formatter whose inconsistency comes from CLDR month abbreviations.
+B6, captured on the backlog as a device observation with no source investigation and deleted on promotion (git holds the note), described three symptoms. The investigation is now done and its findings are cited in `proposal.md`: a hand-placed FAB layer over a list with a magic bottom padding, a y-axis label column sharing the plot's exact height at the bottom edge of a card, and one locale-less `d MMM` formatter whose inconsistency comes from CLDR month abbreviations.
 
 The binding constraint is the `visual-baseline` capability: a visual difference from the current appearance is a defect unless it is deliberately in scope. Everything here is therefore local and additive.
 

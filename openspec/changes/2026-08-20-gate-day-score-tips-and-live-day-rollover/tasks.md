@@ -36,7 +36,7 @@
 
 - [ ] 5.1 Apply this change's `day-score-tips` delta to `openspec/specs/day-score-tips/spec.md`, replacing the "Tips shown only for today, only with logged meals" requirement (`:91`) and the "Rotating presentation with tap to expand" requirement (`:102`) with the modified text, scenarios included.
 - [ ] 5.2 Apply this change's `entry-day-targeting` delta to `openspec/specs/entry-day-targeting/spec.md`, adding "The viewed day tracks the wall clock" after the existing "New entries are dated to the viewed day" requirement (`:9`), which is unchanged.
-- [ ] 5.3 Confirm the backlog already reflects the promotion — `docs/agent/backlog/bugs/b3-tips-shown-when-not-needed.md` and `b4-today-stale-across-midnight.md` carry `Status: promoted → openspec/changes/2026-08-20-gate-day-score-tips-and-live-day-rollover`, and `docs/agent/backlog/bugs/README.md` lists them under `## Promoted`. This was done when the proposal was written; no edit expected.
+- [ ] 5.3 Confirm the backlog bookkeeping is already done — the `b3-*` and `b4-*` files are deleted and `docs/agent/backlog/bugs/README.md` lists both under `## Promoted`, pointing at this change. Their investigations live in this change's `proposal.md`, and git holds the original files. No edit expected.
 - [ ] 5.4 Verify: `openspec validate 2026-08-20-gate-day-score-tips-and-live-day-rollover --strict` passes, and the main specs still parse (`openspec list --specs`).
 
 ## 6. On-device confirmation

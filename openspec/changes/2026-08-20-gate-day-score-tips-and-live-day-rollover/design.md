@@ -1,6 +1,6 @@
 ## Context
 
-Two defects on the entries/day surface, bundled because both are decided by what that surface believes about the day it shows: tips that never stop (B3) and a "Today" that goes stale across midnight (B4). Investigation notes with the measured evidence: `docs/agent/backlog/bugs/b3-tips-shown-when-not-needed.md`, `docs/agent/backlog/bugs/b4-today-stale-across-midnight.md`.
+Two defects on the entries/day surface, bundled because both are decided by what that surface believes about the day it shows: tips that never stop (B3) and a "Today" that goes stale across midnight (B4). The measured evidence is in `proposal.md`; the original backlog notes (`b3-*`, `b4-*`) were deleted on promotion and live in git history.
 
 Constraints from `docs/agent/guidance/coding.md`: one-directional layering (UI → state holder → repository → DAO), no `Context` above the repository boundary, and extracted pure functions ship JVM-tested (`docs/agent/guidance/testing.md`).
 

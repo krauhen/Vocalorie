@@ -36,7 +36,7 @@ The backlog file records device observation only; these checks confirm the root 
 
 - [ ] 5.1 Apply this change's `entries-list-presentation` delta to `openspec/specs/entries-list-presentation/spec.md`, adding "Scrolling content clears the floating action buttons" after the existing "Row visual polish" requirement (`:31`), which is unchanged.
 - [ ] 5.2 Apply this change's `meal-stats-overview` delta to `openspec/specs/meal-stats-overview/spec.md`, adding "Chart axis labels render inside their card" and "Heatmap range labels use one pattern and an explicit locale" after the existing "Calendar heatmap with a fixed window" requirement (`:62`), which is unchanged.
-- [ ] 5.3 Confirm the backlog already reflects the promotion — `docs/agent/backlog/bugs/b6-visual-clipping-and-locale.md` carries `Status: promoted → openspec/changes/2026-08-20-fix-entries-visual-clipping-and-locale`, its `## Investigation (2026-08-20)` section points at this change's `proposal.md`, and `docs/agent/backlog/bugs/README.md` lists it under `## Promoted`. This was done when the proposal was written; no edit expected.
+- [ ] 5.3 Confirm the backlog bookkeeping is already done — the `b6-*` file is deleted and `docs/agent/backlog/bugs/README.md` lists B6 under `## Promoted`, pointing at this change. The device observations and the source investigation live in this change's `proposal.md`. No edit expected.
 - [ ] 5.4 Verify: `openspec validate 2026-08-20-fix-entries-visual-clipping-and-locale --strict` passes, and the main specs still parse (`openspec list --specs`).
 
 ## 6. On-device confirmation

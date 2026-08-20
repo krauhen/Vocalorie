@@ -29,7 +29,7 @@
 ## 4. Specs and backlog (documentation)
 
 - [ ] 4.1 Apply this change's `meal-caching` delta to `openspec/specs/meal-caching/spec.md`, replacing the "Whole-meal cache matches only on exact normalized query" requirement (`:18`), the "Item-name cache stores nutrition per 100 g/ml and scales on use" requirement (`:37`) and the "Cache starts empty on migration" requirement (`:78`) with the modified text, scenarios included. If the `2026-08-20-fix-item-quantity-scaling` change has already been applied to the main spec, keep its quantity-label sentences and merge the normalization sentences alongside them rather than overwriting.
-- [ ] 4.2 Confirm the backlog already reflects the promotion — `docs/agent/backlog/bugs/b5-cache-duplicates.md` carries `Status: promoted → openspec/changes/2026-08-20-fix-cache-key-normalization` and `docs/agent/backlog/bugs/README.md` lists it under `## Promoted`. This was done when the proposal was written; no edit expected.
+- [ ] 4.2 Confirm the backlog bookkeeping is already done — the `b5-*` file is deleted and `docs/agent/backlog/bugs/README.md` lists B5 under `## Promoted`, pointing at this change. Its investigation, including the refuted date-leak suspicion, lives in this change's `proposal.md`. No edit expected.
 - [ ] 4.3 Verify: `openspec validate 2026-08-20-fix-cache-key-normalization --strict` passes, and the main specs still parse (`openspec list --specs`).
 
 ## 5. On-device confirmation

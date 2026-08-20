@@ -1,6 +1,6 @@
 ## Context
 
-B5 (`docs/agent/backlog/bugs/b5-cache-duplicates.md`) reported duplicate cache entries and guessed at a time value in the key. The investigation refuted that and measured the real shape: `cached_items` 280 rows / 0 duplicate names, `cached_meals` 171 rows / 11 duplicated titles. The cause is normalization divergence in `data/MealMappers.kt:335-348`.
+B5, captured on the backlog and deleted on promotion (git holds the note), reported duplicate cache entries and guessed at a time value in the key. The investigation refuted that and measured the real shape: `cached_items` 280 rows / 0 duplicate names, `cached_meals` 171 rows / 11 duplicated titles. The cause is normalization divergence in `data/MealMappers.kt:335-348`.
 
 Binding constraints: Room migrations are additive only, never `fallbackToDestructiveMigration`, and a schema bump moves `BACKUP_SCHEMA_VERSION` and widens `SUPPORTED_BACKUP_SCHEMA_VERSIONS` in the same commit (`openspec/config.yaml`, `docs/agent/guidance/coding.md`). Extracted pure functions ship JVM-tested (`docs/agent/guidance/testing.md`).
 

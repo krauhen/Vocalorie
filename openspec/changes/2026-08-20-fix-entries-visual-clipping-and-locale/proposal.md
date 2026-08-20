@@ -1,6 +1,6 @@
 ## Why
 
-Three things on the entries screen hide or garble information the user is looking at. Observed on a Samsung Galaxy S23 (`docs/agent/backlog/bugs/b6-visual-clipping-and-locale.md`):
+Three things on the entries screen hide or garble information the user is looking at. Observed on a Samsung Galaxy S23, on the installed debug build of 2026-07-31:
 
 - **The action buttons sit on top of the content.** The settings gear covers a meal card's energy line, so it reads `…2 kJ / 500 kcal` with the leading digits gone; the Add button cuts the Amount and Fat values off the macro line. Both buttons are hand-placed children of the screen's root `Box` (`ui/entries/MealEntriesScreen.kt:119`) with `.align(BottomEnd)` / `.align(BottomStart)` and `.navigationBarsPadding()` (`:226-231, 238-243`), while the `LazyColumn` reserves a hardcoded `bottom = 116.dp` (`:142-145`) and consumes no insets of its own — only the top is handled, on the `PullToRefreshBox` (`:140`). So the buttons are pushed up by the navigation-bar inset that the list never accounts for, and the reserved space is a constant unrelated to the buttons' real height (52 dp gear, ~56 dp `ExtendedFloatingActionButton`, `ui/entries/MealEntriesActionButtons.kt:15-33). A calorie value the user has to guess at is a data read-out that does not read out.
 
