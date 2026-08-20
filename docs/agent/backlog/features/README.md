@@ -11,8 +11,14 @@ captured idea and a record — not a decision and not authorization to implement
 Lifecycle: captured here → promoted to an `openspec/changes/<id>/` proposal when chosen → the
 backlog file marked `Status: promoted → openspec/changes/<id>` or deleted, since git holds the
 history. Each item names a best-guess target capability spec; the guess is a starting point for the
-proposal, not a commitment. Required behaviour is only ever specified in `openspec/specs/`; this
-directory never becomes a second source of truth about it.
+proposal, not a commitment.
+
+F1, F3 and F4 were investigated on 2026-08-20 against the source and a live device; each file
+carries an `## Investigation` section with file:line current state. Read it before proposing. F2 is
+an audit, not a change — it produces findings first, and only then possibly a proposal.
+
+Required behaviour is only ever specified in `openspec/specs/`; this directory never becomes a
+second source of truth about it.
 
 ## Open feature requests
 
