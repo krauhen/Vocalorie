@@ -332,10 +332,12 @@ private fun String.resolveMealTitle(query: String, firstItemName: String?): Stri
 private fun String.isEffectivelySameTextAs(other: String): Boolean =
     normalizeMealText() == other.normalizeMealText()
 
-private fun String.normalizeMealText(): String = trim()
-    .lowercase()
+private fun String.normalizeMealText(): String = foldedForKey()
+    .replace(countPrefixedAmountPattern, " ")
     .replace(amountTokenPattern, " ")
+    .replace(kcalTokenPattern, " ")
     .replace(Regex("\\s+"), " ")
+    .trim()
 
 fun String.toStableNormalizedMealKey(): String = normalizeMealText()
     .split(Regex("[^\\p{L}\\p{Nd}]+"))
@@ -343,6 +345,8 @@ fun String.toStableNormalizedMealKey(): String = normalizeMealText()
     .map { it.trim() }
     .filter { it.isNotBlank() }
     .filterNot { it.isNumericToken() }
+    .filterNot { it in COUNTING_WORDS }
+    .filterNot { it in UNIT_WORDS }
     .distinct()
     .sorted()
     .joinToString(" ")
@@ -418,3 +422,45 @@ private fun String.toConcreteSourceUrlOrBlank(): String = trim().takeIf { source
 private val requestAmountPattern = Regex("""\b(\d+(?:[.,]\d+)?)\s*(g|ml|kg|l)\b""", RegexOption.IGNORE_CASE)
 private val numericTokenPattern = Regex("""\d+(?:[.,]\d+)?""")
 private val amountTokenPattern = Regex("""\b\d+(?:[.,]\d+)?\s*(?:g|ml|kg|l)\b""", RegexOption.IGNORE_CASE)
+
+/** A `<count>x<amount><unit>` token such as `2x106g`, stripped whole before [amountTokenPattern]. */
+private val countPrefixedAmountPattern =
+    Regex("""\b\d+(?:[.,]\d+)?\s*[x\u00D7]\s*\d+(?:[.,]\d+)?\s*(?:g|ml|kg|l)\b""", RegexOption.IGNORE_CASE)
+
+/** A spoken calorie guess such as `169kcal`, size rather than identity, so stripped like an amount. */
+private val kcalTokenPattern = Regex("""\b\d+(?:[.,]\d+)?\s*kcal\b""", RegexOption.IGNORE_CASE)
+
+/**
+ * Fold a query into the key's character space: lowercase, German umlauts and eszett to their
+ * digraphs, then drop any remaining combining marks. The order matters — NFD alone would turn
+ * `Muesli` into `Musli`, which no longer matches the `Muesli` the same user also says.
+ */
+internal fun String.foldedForKey(): String = java.text.Normalizer.normalize(trim(), java.text.Normalizer.Form.NFC)
+    .lowercase()
+    .replace("\u00e4", "ae")
+    .replace("\u00f6", "oe")
+    .replace("\u00fc", "ue")
+    .replace("\u00df", "ss")
+    .let { java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFD) }
+    .replace(combiningMarkPattern, "")
+
+private val combiningMarkPattern = Regex("""\p{Mn}+""")
+
+/**
+ * German counting words in their common inflections. A count states how much, and how much already
+ * lives in the amount, so a count never contributes to a key. Written already folded.
+ */
+internal val COUNTING_WORDS: Set<String> = setOf(
+    "ein", "eine", "einen", "einem", "eins",
+    "zwei", "drei", "vier", "fuenf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwoelf",
+)
+
+/**
+ * Unit words the system prompt teaches the model to expect, plus the drink containers. Like counts,
+ * they are size and not identity, so "ein Glas Buttermilch" keys the same as "Buttermilch".
+ * Written already folded.
+ */
+internal val UNIT_WORDS: Set<String> = setOf(
+    "g", "ml", "kg", "l",
+    "el", "tl", "stueck", "scheibe", "scheiben", "prise", "portion", "glas", "becher", "tasse",
+)

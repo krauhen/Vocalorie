@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 
 @Database(
     entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 public abstract class VocalorieDatabase extends RoomDatabase {
@@ -166,6 +166,19 @@ public abstract class VocalorieDatabase extends RoomDatabase {
         }
     };
 
+    public static final Migration MIGRATION_10_11 = new Migration(10, 11) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            // The cache-key normalization rule changed (counting words, unit words,
+            // count-prefixed amounts and kcal hints are stripped, diacritics folded), so every
+            // stored key is unreachable under the new rule. Clear both caches rather than carry
+            // dead rows a coincidental key collision could resurrect with stale nutrition; they
+            // refill on the next reviewed saves. The meals and activities tables are untouched.
+            database.execSQL("DELETE FROM cached_meals");
+            database.execSQL("DELETE FROM cached_items");
+        }
+    };
+
     private static volatile VocalorieDatabase instance;
 
     public static VocalorieDatabase get(Context context) {
@@ -180,7 +193,7 @@ public abstract class VocalorieDatabase extends RoomDatabase {
                         context.getApplicationContext(),
                         VocalorieDatabase.class,
                         "vocalorie.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build();
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build();
                 instance = current;
             }
             return current;

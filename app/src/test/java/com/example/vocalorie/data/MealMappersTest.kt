@@ -7,6 +7,7 @@ import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -351,6 +352,56 @@ class MealMappersTest {
         val matches = searchSavedMeals(meals, "200g cucumber")
 
         assertEquals(listOf(1L), matches.map { it.id })
+    }
+
+    @Test
+    fun normalizedMealKeyStripsSizeAndFoldsDiacritics() {
+        val cases = listOf(
+            // Counting words are size, not identity.
+            "Karotten zwei" to "karotten",
+            "Karotten vier" to "karotten",
+            "eine Aprikose" to "aprikose",
+            // Count-prefixed amounts the plain amount pattern misses.
+            "2x106g Sprotten" to "sprotten",
+            "1x106g Sprotten" to "sprotten",
+            // German unit words the prompt teaches the model to expect.
+            "ein Glas Buttermilch" to "buttermilch",
+            "zwei Scheiben Brot" to "brot",
+            "1 EL Olivenoel" to "olivenoel",
+            // A spoken calorie guess never forks the key.
+            "R\u00fchrei 169kcal" to "ruehrei",
+            // Umlauts fold to their digraphs, so both spellings key alike.
+            "M\u00fcsli" to "muesli",
+            "Muesli" to "muesli",
+            // Nothing but size left -> no key at all.
+            "2 St\u00fcck" to "",
+            // Token-set semantics are untouched: de-duplicated and sorted.
+            "Apfel und Banane" to "apfel banane und",
+        )
+
+        cases.forEach { (input, expected) ->
+            assertEquals("normalized key of \"$input\"", expected, input.toStableNormalizedMealKey())
+        }
+    }
+
+    @Test
+    fun transcriptionTyposStayDistinctKeys() {
+        // No fuzzy matching: a mistyped food is a different food, not a near-match.
+        assertNotEquals("Grillgem\u00fcse".toStableNormalizedMealKey(), "Grillgwm\u00fcse".toStableNormalizedMealKey())
+    }
+
+    @Test
+    fun searchSavedMealsNoLongerMatchesOnSizeWordsAlone() {
+        val meals = listOf(
+            savedMeal(id = 1L, query = "ein Glas Buttermilch", title = "Buttermilch", itemName = "Buttermilch"),
+            savedMeal(id = 2L, query = "zwei Scheiben Brot", title = "Brot", itemName = "Brot"),
+        )
+
+        // "Glas" and "zwei" are size words; they leave no key, so they match nothing.
+        assertTrue(searchSavedMeals(meals, "Glas").isEmpty())
+        assertTrue(searchSavedMeals(meals, "zwei").isEmpty())
+        // The food name still matches.
+        assertEquals(listOf(1L), searchSavedMeals(meals, "Buttermilch").map { it.id })
     }
 
     private fun sampleResult(title: String = "Egg Breakfast") = NutritionAgentResult(

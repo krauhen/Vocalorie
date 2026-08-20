@@ -11,15 +11,18 @@ const val BACKUP_FORMAT: String = "vocalorie-backup"
  * Mirrors the Room `@Database(version = ...)` in [VocalorieDatabase]. Keep in sync on every schema
  * bump: this is the version stamped onto every export.
  */
-const val BACKUP_SCHEMA_VERSION: Int = 10
+const val BACKUP_SCHEMA_VERSION: Int = 11
 
 /**
  * Every [BackupEnvelope.schemaVersion] this build can import. Extend it in the same change as any
  * schema bump that is reachable by additive migration alone, so raising [BACKUP_SCHEMA_VERSION]
  * never orphans files a previous build already exported. v8, v9 and v10 differ only by columns added
  * with defaults, so an older envelope needs no upcasting — its missing fields take their defaults.
+ * v11 adds no column at all: it only clears the caches because the cache-key rule changed, so a
+ * v8-v10 envelope's cache rows restore verbatim under the old key rule and are simply unreachable
+ * (harmless derived data that the next reviewed save re-caches under the new key).
  */
-val SUPPORTED_BACKUP_SCHEMA_VERSIONS: IntRange = 8..10
+val SUPPORTED_BACKUP_SCHEMA_VERSIONS: IntRange = 8..11
 
 /**
  * Full-database backup: all four user-data tables (never any secret such as an API key). Each row

@@ -20,6 +20,12 @@ The system SHALL reuse a cached meal for an add-meal request only when the reque
 
 When a reused cached meal is scaled to the amount requested by the query, each of its items' `quantity` labels SHALL be scaled by the same rule as the item amounts, as defined by the `meal-item-quantity` capability, so that a reused meal never presents a label disagreeing with the amount beside it.
 
+Normalization SHALL remove every token that states how much of the food there is, because size is carried by the item amounts rather than by the key. It SHALL remove: bare numbers; `<number><unit>` amounts in g, ml, kg and l; `<count>x<number><unit>` amounts; `<number>kcal` hints; the German counting words for one through twelve including their common inflections; and the German portion-unit words the estimate prompt teaches the model to expect — EL, TL, Stück, Scheibe, Prise, Portion — together with Glas, Becher and Tasse.
+
+Normalization SHALL fold diacritics so a transcriber's umlaut choice does not change the identity of a food: `ä`, `ö`, `ü` and `ß` SHALL fold to `ae`, `oe`, `ue` and `ss`, and any remaining combining marks SHALL be dropped.
+
+A query whose normalized key is empty SHALL NOT match any cached meal and SHALL NOT be written to the cache.
+
 #### Scenario: Identical query reuses the cached meal
 - **WHEN** the user adds "Buttermilch 200g" and a cached meal-key entry `{buttermilch}` exists
 - **THEN** the cached meal is reused (no LLM call), scaled to the requested amount
@@ -36,6 +42,38 @@ When a reused cached meal is scaled to the amount requested by the query, each o
 - **WHEN** a cached meal "Frühstück" contains an item named "Froobie" and the user adds a meal query "Froobie"
 - **THEN** the cached "Frühstück" meal is NOT matched on the basis of its item name
 
+#### Scenario: A counting word does not fork the key
+- **WHEN** the user adds "Karotten zwei" and a cached entry exists for "Karotten vier"
+- **THEN** both queries normalize to `{karotten}` and the cached meal is reused
+
+#### Scenario: A count-prefixed amount does not fork the key
+- **WHEN** the user adds "2x106g Sprotten" and a cached entry exists for "1x106g Sprotten"
+- **THEN** both normalize to `{sprotten}` and the cached meal is reused
+
+#### Scenario: A portion-unit word does not fork the key
+- **WHEN** the user adds "ein Glas Buttermilch" and a cached entry exists for "Buttermilch"
+- **THEN** both normalize to `{buttermilch}` and the cached meal is reused
+
+#### Scenario: A spoken calorie hint does not fork the key
+- **WHEN** the user adds "Rührei 169kcal" and a cached entry exists for "Rührei"
+- **THEN** both normalize to `{ruehrei}` and the cached meal is reused
+
+#### Scenario: Umlaut spelling variants share one key
+- **WHEN** the user adds "Muesli" and a cached entry exists for "Müsli"
+- **THEN** both normalize to `{muesli}` and the cached meal is reused
+
+#### Scenario: A different food still misses
+- **WHEN** the user adds "zwei Scheiben Brot" and the only cached entry is for "ein Glas Buttermilch"
+- **THEN** the normalized keys are `{brot}` and `{buttermilch}`, no match is returned, and a fresh estimate is requested
+
+#### Scenario: A transcription typo is still a separate key
+- **WHEN** the user adds "Grillgwmüse" and a cached entry exists for "Grillgemüse"
+- **THEN** no match is returned, because normalization corrects size words and spelling variants but not typos
+
+#### Scenario: A query of nothing but size words matches nothing
+- **WHEN** the user adds "2 Stück"
+- **THEN** the normalized key is empty, no cached meal is matched, and the resulting meal is not written to the meal-key cache
+
 #### Scenario: A scaled reuse moves the quantity labels with the amounts
 - **WHEN** the user adds "Buttermilch 100g" and the matching cached meal holds one item reading `"200 g"` at `200`
 - **THEN** the prepared draft's item reads `"100 g"` at `100`
@@ -49,6 +87,8 @@ The system SHALL maintain an item cache keyed on the exact normalized item name 
 
 The per-100 basis SHALL be derived from `amountGml` only; an item's `quantity` label SHALL NOT contribute to it, and the cache SHALL NOT rely on that label having any particular form. When a reused item is scaled to the requested amount, its `quantity` label SHALL be scaled by the rule defined in the `meal-item-quantity` capability.
 
+The item key SHALL be produced by the same normalization as the meal key, including the counting-word, unit-word and diacritic rules, so the two caches can never disagree about what the same words mean. An item whose normalized name is empty SHALL NOT be written to the item cache.
+
 #### Scenario: Item nutrition is stored per 100 g/ml
 - **WHEN** an item "Buttermilch 200g" with 100 kcal is cached
 - **THEN** it is stored as 50 kcal per 100 g
@@ -60,6 +100,14 @@ The per-100 basis SHALL be derived from `amountGml` only; an item's `quantity` l
 #### Scenario: Item match ignores amount
 - **WHEN** the item cache holds "Buttermilch" and a new estimate contains "Buttermilch" at 150 g
 - **THEN** the cached item matches (name equal, amount ignored) and is scaled to 150 g
+
+#### Scenario: Item names fold the same way as meal keys
+- **WHEN** the item cache holds "Müsli" and a new estimate contains an item named "Muesli"
+- **THEN** the cached item matches, both names normalizing to `muesli`
+
+#### Scenario: An item named only by a unit word is not cached
+- **WHEN** a reviewed meal contains an item named "Scheibe"
+- **THEN** its normalized name is empty and no item-cache row is written for it
 
 #### Scenario: An unparseable quantity label does not disturb the per-100 basis
 - **WHEN** an item with `quantity` `"eine Handvoll"` and `amountGml` `50` and 100 kcal is cached
@@ -92,50 +140,16 @@ The system SHALL upsert both the meal-key cache and the item-name cache only whe
 - **THEN** neither cache is written
 
 ### Requirement: Cache starts empty on migration
-The system SHALL create the cache storage via an additive Room migration from schema v4 to v5 (no destructive migration), and the cache SHALL start empty — it SHALL NOT be backfilled from existing meal history. Existing meals SHALL remain intact through the migration.
+The system SHALL create both cache tables empty and SHALL clear them again whenever the normalization rule that produces their keys changes, because a stored key that the current rule would not produce is unreachable. Neither table SHALL be populated by back-filling from the existing meal history; both SHALL refill from subsequent reviewed saves.
 
-#### Scenario: Existing meals survive the migration
-- **WHEN** the app upgrades an existing database from v4 to v5
-- **THEN** the cache table(s) are created empty and all existing meals remain intact
+#### Scenario: Existing install migrates to an empty cache
+- **WHEN** an install with saved meals is migrated to a schema version that introduces the caches
+- **THEN** both cache tables exist and are empty, and no history row is back-filled into them
 
-#### Scenario: Cache fills from new saves only
-- **WHEN** the user saves a reviewed meal after upgrading to v5
-- **THEN** that save is the first data to populate the cache
+#### Scenario: A normalization change clears the stored rows
+- **WHEN** an install holding 171 cached meals and 280 cached items is migrated to the schema version that changes the key rule
+- **THEN** both tables are empty afterwards, and the next reviewed save writes a row under the new rule
 
-### Requirement: A reused cached meal preserves its food-type category
-The system SHALL persist a cached meal's food-type category alongside its cached nutrition data, and SHALL restore that category when the cached meal is reused. A cache hit SHALL NOT downgrade a meal's category to the neutral fallback. Cache entries written before the category was persisted SHALL resolve to the neutral fallback category, exactly as an unclassified meal does.
-
-#### Scenario: A cache hit keeps the original category
-- **WHEN** a meal classified as a drink is saved, cached, and later reused from the whole-meal cache
-- **THEN** the reused meal is still classified as a drink and renders the drink icon
-
-#### Scenario: A pre-existing cache entry falls back neutrally
-- **WHEN** a cached meal written before category persistence is reused
-- **THEN** it resolves to the neutral fallback category rather than failing or being rejected
-
-#### Scenario: Category survives the round trip through the cache
-- **WHEN** a reviewed meal of any category is saved and its cache entry is read back
-- **THEN** the category read back equals the category that was saved
-
-### Requirement: Cache lookup cost does not grow with cache size
-The system SHALL resolve a whole-meal cache lookup and an item-name cache lookup by querying for the specific keys being looked up. The system SHALL NOT load the full contents of either cache table in order to find a matching entry, and SHALL NOT retain the full cache tables in user-interface state.
-
-#### Scenario: A whole-meal lookup queries only its key
-- **WHEN** an add-meal request is checked against the whole-meal cache
-- **THEN** the lookup retrieves at most the entry matching that request's normalized key, rather than every cached meal
-
-#### Scenario: Item resolution queries only the names it needs
-- **WHEN** an estimate's items are resolved against the item-name cache
-- **THEN** the lookup retrieves only entries matching those item names, rather than every cached item
-
-#### Scenario: Lookup behaviour is unchanged as the cache grows
-- **WHEN** the cache contains a large number of entries
-- **THEN** matching still follows the existing exact normalized-key rules and returns the same results as before, at a cost that does not scale with the number of stored entries
-
-### Requirement: Cache writes for one saved meal are atomic
-The system SHALL write a reviewed meal's whole-meal cache entry and its item-name cache entries as one atomic unit, so that the two caches cannot be left inconsistent with each other by an interrupted save.
-
-#### Scenario: An interrupted cache write leaves neither cache updated
-- **WHEN** a reviewed save is interrupted between writing the whole-meal cache entry and the item-name cache entries
-- **THEN** neither cache retains a partial update from that save
-
+#### Scenario: Saved meals survive the clearing
+- **WHEN** the cache-clearing migration runs
+- **THEN** the meals and activities history tables are untouched

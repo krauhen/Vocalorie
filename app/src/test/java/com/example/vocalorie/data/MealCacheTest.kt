@@ -240,6 +240,55 @@ class MealCacheTest {
         assertEquals(MealCategory.OTHER, entry.toSavedMeal().category)
     }
 
+    // --- Cache-key normalization: size words never fork a key ---
+
+    @Test
+    fun countingWordDoesNotForkTheMealKey() {
+        val cache = listOf(mealDraft(query = "Karotten vier").toCachedMealEntity()!!)
+
+        assertNotNull(findCachedMealMatch(cache, "Karotten zwei"))
+    }
+
+    @Test
+    fun unitWordDoesNotForkTheMealKey() {
+        val cache = listOf(mealDraft(query = "Buttermilch").toCachedMealEntity()!!)
+
+        assertNotNull(findCachedMealMatch(cache, "ein Glas Buttermilch"))
+    }
+
+    @Test
+    fun sizeOnlyQueryIsNeitherCachedNorMatched() {
+        assertNull(mealDraft(query = "2 St\u00fcck").toCachedMealEntity())
+        // A blank key must never match every meal.
+        val cache = listOf(mealDraft(query = "Buttermilch").toCachedMealEntity()!!)
+        assertNull(findCachedMealMatch(cache, "2 St\u00fcck"))
+    }
+
+    @Test
+    fun transcriptionTypoStillMissesTheCache() {
+        val cache = listOf(mealDraft(query = "Grillgem\u00fcse").toCachedMealEntity()!!)
+
+        assertNull(findCachedMealMatch(cache, "Grillgwm\u00fcse"))
+    }
+
+    @Test
+    fun unitWordItemNameProducesNoItemCacheRow() {
+        val draft = mealDraft(query = "Brot", itemName = "Scheibe", itemAmountGml = 40.0)
+
+        assertTrue(draft.toCachedItemEntities().isEmpty())
+    }
+
+    @Test
+    fun itemResolvesAcrossTheUmlautSpelling() {
+        val cached = mealDraft(query = "M\u00fcsli 200g", itemName = "M\u00fcsli", itemAmountGml = 200.0, itemCaloriesKcal = 800.0)
+            .toCachedItemEntities()
+
+        val resolved = mealDraft(query = "Muesli 100g", itemName = "Muesli", itemAmountGml = 100.0, itemCaloriesKcal = 0.0)
+            .withItemsResolvedFromCache(cached)
+
+        assertEquals("400", resolved.items.single().caloriesKcal)
+    }
+
     private fun mealDraft(
         query: String,
         itemName: String = query,

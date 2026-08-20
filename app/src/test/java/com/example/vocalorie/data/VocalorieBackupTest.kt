@@ -105,6 +105,39 @@ class VocalorieBackupTest {
     }
 
     @Test
+    fun exportsFromBeforeTheCacheKeyBumpStillImport() {
+        // v11 clears the caches instead of adding a column, so a v10 envelope needs no upcasting;
+        // its cache rows restore verbatim under the old key rule and are simply unreachable.
+        val json = encodeBackupEnvelope(
+            BackupEnvelope(
+                schemaVersion = 10,
+                meals = listOf(sampleMeal(id = 1L)),
+                cachedMeals = listOf(sampleCachedMeal("gyoza")),
+                cachedItems = listOf(sampleCachedItem("gyoza")),
+            ),
+        )
+
+        val decoded = parseBackupEnvelope(json)
+
+        assertEquals(10, decoded.schemaVersion)
+        assertEquals("gyoza", decoded.cachedMeals.single().normalizedKey)
+    }
+
+    @Test
+    fun currentSchemaVersionEnvelopeRoundTrips() {
+        val envelope = BackupEnvelope(
+            meals = listOf(sampleMeal(id = 1L)),
+            cachedMeals = listOf(sampleCachedMeal("buttermilch")),
+            cachedItems = listOf(sampleCachedItem("buttermilch")),
+        )
+
+        val decoded = parseBackupEnvelope(encodeBackupEnvelope(envelope))
+
+        assertEquals(11, decoded.schemaVersion)
+        assertEquals(envelope, decoded)
+    }
+
+    @Test
     fun parseRejectsSchemaVersionBelowTheSupportedRange() {
         val json = encodeBackupEnvelope(BackupEnvelope(schemaVersion = SUPPORTED_BACKUP_SCHEMA_VERSIONS.first - 1))
         assertThrows(BackupFormatException::class.java) { parseBackupEnvelope(json) }

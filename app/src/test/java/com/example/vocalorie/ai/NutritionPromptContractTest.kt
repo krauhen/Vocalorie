@@ -50,7 +50,7 @@ class NutritionPromptContractTest {
         val databaseSource = productionSource("VocalorieDatabase.java")
         val entitySource = productionSource("MealEntity.kt")
 
-        assertTrue(databaseSource.contains("version = 10"))
+        assertTrue(databaseSource.contains("version = 11"))
         assertTrue(databaseSource.contains("Migration(1, 2)"))
         assertTrue(databaseSource.contains("Migration(2, 3)"))
         assertTrue(databaseSource.contains("Migration(3, 4)"))
@@ -60,6 +60,7 @@ class NutritionPromptContractTest {
         assertTrue(databaseSource.contains("MIGRATION_7_8"))
         assertTrue(databaseSource.contains("MIGRATION_8_9"))
         assertTrue(databaseSource.contains("MIGRATION_9_10"))
+        assertTrue(databaseSource.contains("MIGRATION_10_11"))
         assertTrue(databaseSource.contains("ALTER TABLE meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'"))
         assertTrue(databaseSource.contains("ALTER TABLE cached_meals ADD COLUMN category TEXT NOT NULL DEFAULT 'OTHER'"))
         assertTrue(databaseSource.contains("CREATE TABLE cached_meals"))
