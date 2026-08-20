@@ -13,10 +13,10 @@ backlog file marked `Status: promoted → openspec/changes/<id>` or deleted, sin
 history. Each item names a best-guess target capability spec; the guess is a starting point for the
 proposal, not a commitment.
 
-F1, F3 and F4 were investigated on 2026-08-20 against the source and a live device; each file
-carries an `## Investigation` section with file:line current state. Read it before proposing. F2 was
-an audit, not a change; it ran on 2026-08-20 and its deliverable is [f2-findings.md](f2-findings.md),
-whose gap list is the source for future items.
+F1 and F4 were promoted to OpenSpec changes on 2026-08-20 and their files removed; git holds their
+investigations, and the changes themselves now carry the current state. F2 was an audit, not a
+change; it ran on 2026-08-20 and its deliverable is [f2-findings.md](f2-findings.md), whose gap list
+is the source for future items.
 
 Required behaviour is only ever specified in `openspec/specs/`; this directory never becomes a
 second source of truth about it.
@@ -28,10 +28,10 @@ second source of truth about it.
 
 ## Promoted
 
-- [F1 — narrate estimation progress](f1-estimation-progress-narration.md) →
-  `openspec/changes/2026-08-20-narrate-estimation-progress`
-- [F4 — date-picker widget in edit mode](f4-date-picker-widget-in-edit.md) →
-  `openspec/changes/2026-08-20-date-time-picker-in-entry-editors`
+Their backlog files are removed; the OpenSpec change is the live record.
+
+- F1 — narrate estimation progress → `openspec/changes/2026-08-20-narrate-estimation-progress`
+- F4 — date-picker widget in edit mode → `openspec/changes/2026-08-20-date-time-picker-in-entry-editors`
 
 ## Completed audits
 
