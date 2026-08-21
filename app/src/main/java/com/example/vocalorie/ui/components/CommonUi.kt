@@ -11,15 +11,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.TimePicker
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +54,7 @@ import com.example.vocalorie.model.ConfidenceLevel
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
 import java.time.format.DateTimeParseException
@@ -287,10 +301,21 @@ fun ErrorCard(message: String, diagnostic: String?, onRetry: (() -> Unit)? = nul
  * The one editable timestamp field, shared by the meal and activity editors so both stay in step on
  * label, format hint and error state.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntryTimestampField(epochMillis: Long, enabled: Boolean, onChange: (Long) -> Unit, onValidationChange: (Boolean) -> Unit) {
+    val zone = remember { ZoneId.systemDefault() }
     var value by rememberSaveable { mutableStateOf(formatEditableTimestamp(epochMillis)) }
     var isInvalid by remember(epochMillis) { mutableStateOf(false) }
+    var showDatePicker by rememberSaveable { mutableStateOf(false) }
+    var showTimePicker by rememberSaveable { mutableStateOf(false) }
+
+    fun applyPicked(merged: Long) {
+        value = formatEditableTimestamp(merged, zone)
+        isInvalid = false
+        onValidationChange(true)
+        onChange(merged)
+    }
 
     LaunchedEffect(epochMillis) {
         if (shouldResyncEditableTimestamp(value, epochMillis)) {
@@ -317,7 +342,53 @@ fun EntryTimestampField(epochMillis: Long, enabled: Boolean, onChange: (Long) ->
         isError = isInvalid,
         supportingText = { Text(if (isInvalid) "Enter a real date/time as $EDITABLE_TIMESTAMP_FORMAT" else "Format: $EDITABLE_TIMESTAMP_FORMAT") },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        trailingIcon = {
+            Row {
+                IconButton(onClick = { showDatePicker = true }, enabled = enabled) {
+                    Icon(Icons.Outlined.CalendarToday, contentDescription = "Pick date")
+                }
+                IconButton(onClick = { showTimePicker = true }, enabled = enabled) {
+                    Icon(Icons.Outlined.Schedule, contentDescription = "Pick time")
+                }
+            }
+        },
     )
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = toPickerDateMillis(epochMillis, zone))
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { pickedDateUtcMillis ->
+                        applyPicked(mergePickedDate(epochMillis, pickedDateUtcMillis, zone))
+                    }
+                    showDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    if (showTimePicker) {
+        val currentTime = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalTime()
+        val timePickerState = rememberTimePickerState(initialHour = currentTime.hour, initialMinute = currentTime.minute, is24Hour = true)
+        TimePickerDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    applyPicked(mergePickedTime(epochMillis, timePickerState.hour, timePickerState.minute, zone))
+                    showTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } },
+            title = {},
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
 }
 
 fun Double?.formatNullable(): String = this?.let { value ->
@@ -355,4 +426,30 @@ fun parseEditableTimestamp(value: String, zone: ZoneId = ZoneId.systemDefault())
 fun shouldResyncEditableTimestamp(value: String, epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Boolean {
     val parsed = parseEditableTimestamp(value, zone) ?: return false
     return parsed != epochMillis
+}
+
+/** The local calendar date of [epochMillis] in [zone], expressed as UTC midnight — what `DatePickerState` expects. */
+fun toPickerDateMillis(epochMillis: Long, zone: ZoneId): Long = Instant.ofEpochMilli(epochMillis)
+    .atZone(zone)
+    .toLocalDate()
+    .atStartOfDay(ZoneOffset.UTC)
+    .toInstant()
+    .toEpochMilli()
+
+/**
+ * Combine the calendar date the picker returned (UTC midnight, per `DatePickerState`) with the
+ * time-of-day [currentEpochMillis] already has in [zone]. `ZonedDateTime.of` resolution shifts a
+ * time falling in a DST gap forward within the same calendar date — the behaviour the DST scenario
+ * wants, not an accident to work around.
+ */
+fun mergePickedDate(currentEpochMillis: Long, pickedDateUtcMillis: Long, zone: ZoneId): Long {
+    val pickedDate = Instant.ofEpochMilli(pickedDateUtcMillis).atZone(ZoneOffset.UTC).toLocalDate()
+    val currentTime = Instant.ofEpochMilli(currentEpochMillis).atZone(zone).toLocalTime()
+    return LocalDateTime.of(pickedDate, currentTime).atZone(zone).toInstant().toEpochMilli()
+}
+
+/** Keep the local calendar date of [currentEpochMillis] in [zone], replace the time-of-day; seconds/nanos are zeroed. */
+fun mergePickedTime(currentEpochMillis: Long, hour: Int, minute: Int, zone: ZoneId): Long {
+    val currentDate = Instant.ofEpochMilli(currentEpochMillis).atZone(zone).toLocalDate()
+    return LocalDateTime.of(currentDate, java.time.LocalTime.of(hour, minute)).atZone(zone).toInstant().toEpochMilli()
 }

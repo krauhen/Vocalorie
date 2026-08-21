@@ -39,7 +39,11 @@ Material 3's picker APIs are unused in this repo — `DatePicker`, `DatePickerDi
 
 ### D2 — Picking a date changes only the date; the entry's time-of-day is preserved
 
-**Decision.** The dialog returns a calendar date. The new instant is that date combined with the **time-of-day the field currently holds**, in the local zone. A separate time picker, reached after confirming the date, changes the time part the same way.
+**Decision.** Two independent trailing affordances on the field: a calendar icon opens a date dialog, a clock icon opens a time dialog. Each dialog's confirm changes only its own part — the date dialog combines the picked date with the field's current time-of-day; the time dialog keeps the current date and replaces the time — both in the local zone.
+
+**Alternative rejected.** A chained flow — confirming the date immediately opens the time dialog.
+
+**Why it lost.** It makes a time-only correction pay for a date dialog it did not need. The two affordances are independent entry points into the same merge rule.
 
 **Alternative rejected.** A single combined date-and-time dialog.
 
@@ -91,11 +95,19 @@ Material 3's picker APIs are unused in this repo — `DatePicker`, `DatePickerDi
 
 **Why it lost.** It puts date arithmetic — the part most likely to be subtly wrong across a DST boundary — inside a composable where no JVM test can reach it. `docs/agent/guidance/testing.md` rule 3 makes extraction-with-tests the standard for exactly this shape of logic, and the neighbouring helpers already follow it.
 
+### D7 — The picker's date is UTC-midnight, and both directions of the conversion are pure
+
+**Decision.** `DatePickerState` speaks UTC midnight in both `initialSelectedDateMillis` and `selectedDateMillis`; the field speaks local calendar dates. Two pure functions own the seam — `toPickerDateMillis` (local date of an instant, as UTC midnight, feeding `initialSelectedDateMillis`) and `mergePickedDate` (reads the `LocalDate` back out of a picked value at `ZoneOffset.UTC`) — and both are JVM-tested, including the case where a timestamp's local and UTC calendar dates differ.
+
+**Alternative rejected.** Convert inline with `ZoneOffset.UTC` at the dialog call site.
+
+**Why it lost.** Same reason D6 rejects the inline merge: date arithmetic belongs where a JVM test can reach it, not in a composable lambda.
+
 ## Risks / Trade-offs
 
 - **First use of `material3` picker APIs in this repo.** No local precedent for their state handling, dialog theming, or `rememberSaveable` behaviour across configuration change. Bounded by the text field remaining as a working fallback (D1).
-- **Two dialogs for one value.** Date then time is more taps than a single combined picker would be. Accepted: the alternative is a custom composed dialog on an API surface this repo has never used (D2).
-- **The picker's theming may not match the app's palette out of the box.** The app has its own `ThemeColors` per tab (`ui/capture/MealCaptureUiState.kt:98-104`); a Material default dialog may read as foreign until it is styled. Cosmetic, and visible immediately on the on-device check.
+- **Two dialogs for one value.** Accepted: the alternative is a custom composed dialog on an API surface this repo has never used (D2).
+- **The picker's theming may not match the app's palette out of the box — resolved.** `VocalorieTheme.kt:213` feeds the active per-tab `ThemeColors` into a real `MaterialTheme`, and `buildColorScheme` (`VocalorieTheme.kt:66-99`) populates `surfaceContainerHigh`, which is what `DatePickerDialog` uses. The dialogs inherit the tab palette with no wrapper needed.
 - **Two editing paths for one field.** Text and picker can disagree mid-edit — the user types half a date, then opens the picker. The existing `shouldResyncEditableTimestamp` guard (`ui/components/CommonUi.kt:295-297`) already exists for precisely this class of conflict, and the picker's confirm must go through the same `onChange`/`onValidationChange` path so validity is recomputed exactly once.
 
 ## Open Questions
