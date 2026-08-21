@@ -1,5 +1,6 @@
 package com.example.vocalorie.ui.capture
 
+import com.example.vocalorie.ai.EstimationProgress
 import com.example.vocalorie.data.CachedMealMatch
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.EditableMealDraft
@@ -55,6 +56,8 @@ data class MealCaptureUiState(
     /** Bumped to tell the voice overlay to clear its own transient state. */
     val resetSignal: Int = 0,
     val isLoading: Boolean = false,
+    /** The current step of an in-flight estimate, purely descriptive; [isLoading] is the gate. */
+    val estimationProgress: EstimationProgress? = null,
     val isSaving: Boolean = false,
     val error: String? = null,
     val diagnostic: String? = null,

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.vocalorie.AppContainer
+import com.example.vocalorie.ai.EstimationProgress
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.ai.NutritionEstimator
@@ -288,6 +289,7 @@ class MealCaptureViewModel(
                 query = request.requestQuery,
                 toolSettings = settingsForEstimate,
                 imageAttachments = request.imageAttachments,
+                onProgress = { step -> update { it.copy(estimationProgress = step) } },
             )
             val estimated = outcome.result.toEditableDraft()
                 .copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
@@ -304,16 +306,24 @@ class MealCaptureViewModel(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (throwable: NutritionAgentException) {
-            update {
-                it.copy(
+            update { current ->
+                current.copy(
                     error = throwable.message ?: ESTIMATE_FAILED_MESSAGE,
-                    diagnostic = throwable.diagnostic,
+                    diagnostic = listOfNotNull(throwable.diagnostic, current.estimationProgress?.toDiagnosticNote())
+                        .joinToString("\n\n"),
                 )
             }
         } catch (throwable: Throwable) {
-            update { it.copy(error = throwable.message ?: ESTIMATE_FAILED_MESSAGE) }
+            update { current ->
+                current.copy(
+                    error = throwable.message ?: ESTIMATE_FAILED_MESSAGE,
+                    diagnostic = listOfNotNull(current.diagnostic, current.estimationProgress?.toDiagnosticNote())
+                        .joinToString("\n\n")
+                        .ifBlank { current.diagnostic },
+                )
+            }
         } finally {
-            update { it.copy(isLoading = false, pendingEstimateRequest = null) }
+            update { it.copy(isLoading = false, estimationProgress = null, pendingEstimateRequest = null) }
         }
     }
 
@@ -864,6 +874,14 @@ class MealCaptureViewModel(
                 update { it.copy(settingsMessage = throwable.message ?: "Could not import data.") }
             }
         }
+    }
+
+    /** A short, technical note naming the step in flight when an estimate failed, for [MealCaptureUiState.diagnostic]. */
+    private fun EstimationProgress.toDiagnosticNote(): String = when (this) {
+        EstimationProgress.Preparing -> "Failed while preparing the estimate."
+        EstimationProgress.SearchingSources -> "Failed while searching for sources."
+        is EstimationProgress.ReadingSource -> "Failed while reading $url."
+        EstimationProgress.CalculatingNutrition -> "Failed while calculating nutrition."
     }
 
     private fun update(block: (MealCaptureUiState) -> MealCaptureUiState) {

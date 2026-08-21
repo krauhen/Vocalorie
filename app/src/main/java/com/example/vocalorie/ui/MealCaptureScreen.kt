@@ -108,6 +108,7 @@ fun MealCaptureScreen(
                     error = state.error,
                     diagnostic = state.diagnostic,
                     groundingWarning = state.groundingWarning,
+                    estimationProgress = state.estimationProgress,
                     saveMessage = state.saveMessage,
                     attachedImages = state.attachedImages,
                     searchQuery = state.searchQuery,

@@ -117,7 +117,7 @@ class UiCopyContractTest {
         val voiceInputOverlay = productionSource("VoiceInputOverlay.kt")
         val technicalLoadingCopy = "Calling Koog" + " + OpenAI"
 
-        assertTrue(voiceInputOverlay.contains("LoadingRow(\"Estimating…\")"))
+        assertTrue(voiceInputOverlay.contains("LoadingRow(estimationProgress?.displayText() ?: \"Estimating…\")"))
         assertFalse(voiceInputOverlay.contains(technicalLoadingCopy))
     }
 

@@ -17,7 +17,7 @@ class BraveSearchTool(
     private val fetcher: HttpTextFetcher = KtorHttpTextFetcher.shared,
 ) : SimpleTool<BraveSearchTool.Args>(
     argsType = typeToken<Args>(),
-    name = "brave_search",
+    name = TOOL_NAME,
     description = "Returns nutrition-related search snippets for a query using the configured Brave Search API.",
 ) {
     @Serializable
@@ -25,6 +25,11 @@ class BraveSearchTool(
         @property:LLMDescription("Search query, for example: Big Mac calories")
         val query: String,
     )
+
+    companion object {
+        /** The tool identity as registered with Koog; never surfaced to the user. */
+        const val TOOL_NAME: String = "brave_search"
+    }
 
     override suspend fun execute(args: Args): String {
         val apiKey = settings.braveApiKey?.trim().orEmpty()

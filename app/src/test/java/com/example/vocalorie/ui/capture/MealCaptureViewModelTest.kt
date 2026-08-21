@@ -1,5 +1,6 @@
 package com.example.vocalorie.ui.capture
 
+import com.example.vocalorie.ai.EstimationProgress
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.ai.NutritionEstimateOutcome
 import com.example.vocalorie.model.ActivityType
@@ -177,6 +178,50 @@ class MealCaptureViewModelTest {
         assertTrue(viewModel.uiState.value.isLoading)
         gate.complete(Unit)
         assertFalse(viewModel.uiState.value.isLoading)
+    }
+
+    @Test
+    fun estimationProgressHoldsTheLatestStepWhileInFlightAndClearsAfterSuccess() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        environment.estimator.progressToEmit = listOf(
+            EstimationProgress.Preparing,
+            EstimationProgress.SearchingSources,
+            EstimationProgress.ReadingSource("https://fddb.info/db/de/lebensmittel/apfel/"),
+            EstimationProgress.CalculatingNutrition,
+        )
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel")
+
+        viewModel.onEstimate()
+
+        assertEquals(EstimationProgress.CalculatingNutrition, viewModel.uiState.value.estimationProgress)
+        gate.complete(Unit)
+        assertNull(viewModel.uiState.value.estimationProgress)
+    }
+
+    @Test
+    fun estimationProgressClearsButNamesTheLastStepInTheDiagnosticOnFailure() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        environment.estimator.progressToEmit = listOf(
+            EstimationProgress.ReadingSource("https://fddb.info/db/de/lebensmittel/apfel/"),
+        )
+        environment.estimator.failWith = IllegalStateException("boom")
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel")
+
+        viewModel.onEstimate()
+        gate.complete(Unit)
+
+        val state = viewModel.uiState.value
+        assertNull(state.estimationProgress)
+        assertTrue(
+            "diagnostic should name the last step",
+            state.diagnostic?.contains("fddb.info") == true,
+        )
     }
 
     @Test

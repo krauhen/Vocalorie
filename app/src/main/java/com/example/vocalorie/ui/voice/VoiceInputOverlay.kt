@@ -59,11 +59,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.vocalorie.ai.EstimationProgress
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.ui.components.EditableMealEditor
 import com.example.vocalorie.ui.components.ErrorCard
 import com.example.vocalorie.ui.components.LoadingRow
+import com.example.vocalorie.ui.components.displayText
 import com.example.vocalorie.ui.voice.toGalleryImageAttachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -94,6 +96,8 @@ fun VoiceInputOverlay(
     onSave: (EditableMealDraft) -> Unit,
     /** Set when a grounding pass ran and failed, so the estimate is unsourced by accident. */
     groundingWarning: String? = null,
+    /** The current step of an in-flight estimate, or null before/after one runs. */
+    estimationProgress: EstimationProgress? = null,
     modifier: Modifier = Modifier,
 ) {
     var showSheet by remember { mutableStateOf(false) }
@@ -137,6 +141,7 @@ fun VoiceInputOverlay(
                 onImagesChange = onImagesChange,
                 onSave = onSave,
                 groundingWarning = groundingWarning,
+                estimationProgress = estimationProgress,
                 enabled = !isLoading && !isSaving,
             )
         }
@@ -166,6 +171,7 @@ private fun VoiceSheetContent(
     onSave: (EditableMealDraft) -> Unit,
     enabled: Boolean,
     groundingWarning: String? = null,
+    estimationProgress: EstimationProgress? = null,
 ) {
     val canReset = query.isNotBlank() || draft != null || attachedImages.isNotEmpty()
     val canSave = draft != null
@@ -257,7 +263,7 @@ private fun VoiceSheetContent(
                 }
             }
         }
-        if (isLoading) LoadingRow("Estimating…")
+        if (isLoading) LoadingRow(estimationProgress?.displayText() ?: "Estimating…")
         if (isSaving) LoadingRow("Saving locally…")
         saveMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
         groundingWarning?.let {

@@ -4,12 +4,12 @@ Estimation is a two-phase operation hidden behind one `suspend` function.
 
 `NutritionEstimator.estimate(...)` (`ai/KoogNutritionAgent.kt:41-48`) returns `NutritionEstimateOutcome` and offers no channel of any kind — no `Flow`, no callback, no shared state. Inside it:
 
-1. **Grounding** (`:104-116`, `:164-195`) — optional, gated on `hasBraveApiKey && maxResearchToolCalls > 0`. It builds a `ToolRegistry` holding `BraveSearchTool` and `WebFetchTool` (`tools/AgentTools.kt:208-215`) and runs `AIAgent(...).run(researchInput)`, a loop bounded by `maxAgentIterations`. Failure here is caught and downgraded: the estimate continues ungrounded and the throwable is carried out in `groundingFailureMessage`.
-2. **Estimating** (`:118-160`) — one `executor.execute(prompt, model, emptyList())` under `ESTIMATE_REQUEST_TIMEOUT_MS` with `withBoundedRetry`, whose text is parsed by `outputStructure.parse(responseText)`.
+1. **Grounding** (`:101-116`, `:165-195`) — optional, gated on `hasBraveApiKey && maxResearchToolCalls > 0`. It builds a `ToolRegistry` holding `BraveSearchTool` and `WebFetchTool` (`tools/AgentTools.kt:208-215`) and runs `AIAgent(...).run(researchInput)` inside `runGroundingAgent` (`:165-195`), a loop bounded by `maxAgentIterations`. Failure here is caught and downgraded: the estimate continues ungrounded and the throwable is carried out in `groundingFailureMessage`.
+2. **Estimating** (`:118-163`) — one `executor.execute(prompt, model, emptyList())` under `ESTIMATE_REQUEST_TIMEOUT_MS` with `withBoundedRetry` (the retry block sits at `:149-153`), whose text is parsed by `outputStructure.parse(responseText)`.
 
 Only phase 1 is stepwise, and it is exactly the phase that takes the variable, unbounded-feeling time. It already has one real per-step hook: `onUrlFetched: (String) -> Unit`, wired at `:174-180` and called by `WebFetchTool` only after a 2xx response. Nothing else in the repo observes agent execution — the only Koog surfaces used are `AIAgent(...)` and `.run(...)`.
 
-Above the seam, `runEstimate` (`ui/capture/MealCaptureViewModel.kt:277-316`) brackets the call with `isLoading = true` / `false`, and `ui/voice/VoiceInputOverlay.kt:260` renders `LoadingRow("Estimating…")` off that boolean. The precedent for a second, narrower in-flight field is `tipsRewordingInFlight` (`ui/capture/MealCaptureUiState.kt:74`) beside `isLoading` (`:57`), with the two combined into `isBusy` (`:116`) only where "anything in flight" is what matters.
+Above the seam, `runEstimate` (`ui/capture/MealCaptureViewModel.kt:276-318`) brackets the call with `isLoading = true` / `false`, and `ui/voice/VoiceInputOverlay.kt:260` renders `LoadingRow("Estimating…")` off that boolean. The precedent for a second, narrower in-flight field is `tipsRewordingInFlight` (`ui/capture/MealCaptureUiState.kt:74`) beside `isLoading` (`:57`), with the two combined into `isBusy` (`:116`) only where "anything in flight" is what matters.
 
 ## Goals / Non-Goals
 
@@ -70,23 +70,21 @@ Above the seam, `runEstimate` (`ui/capture/MealCaptureViewModel.kt:277-316`) bra
 
 **Why it lost.** "Failed while reading example.com" and "failed before it ever reached the network" are different failures with different responses from the user, and today they are indistinguishable.
 
-### D5 — The reading step names a host, not a URL
+### D5 — The reading step carries the full URL; the UI reduces it to a host
 
-**Decision.** The reading step carries the host of the fetched URL, derived with the existing `normalizeSourceUrl(...)` path already applied at `ai/KoogNutritionAgent.kt:177`, so the line reads "Reading fddb.info…".
+**Decision.** `ReadingSource` carries the full normalized URL produced by the existing `normalizeSourceUrl(...)` path already applied at `ai/KoogNutritionAgent.kt:177`. `normalizeSourceUrl()` does not produce a host — it produces a full normalized URL (scheme, host, path, query, fragment). The UI reduces that to a host for display, via the existing `sourceDomainOrUrl()` (`ui/components/CommonUi.kt:266`), so the line still reads "Reading fddb.info…".
 
 **Alternative rejected.** Show the full URL.
 
 **Why it lost.** Food-database URLs are long and query-laden; in a single-line indicator they truncate to noise, and they can carry the search text the user just spoke back at them in encoded form.
 
-### D6 — The Koog event API is an unverified assumption, gated behind a spike, with a working fallback
+### D6 — The Koog event API is verified against the resolved 1.0.0 artifact
 
-**Decision.** Koog's `EventHandler` feature (`handleEvents { onToolCallStarting { … } }`, installed in the `AIAgent(...)` trailing config lambda) is the intended source for the searching and per-tool steps. Its existence is documented, but the exact member names for the version pinned at `gradle/libs.versions.toml:6` are **not verified against this project's resolved artifact**. Task group 1 confirms them in the resolved jar before anything depends on them.
+**Decision.** Koog's `EventHandler` feature is the source for the searching step. Verified in the resolved artifact: `ai.koog.agents.features.eventHandler.feature.EventHandlerConfig` exists, with suspend, additive (not replacing) setters `onToolCallStarting`, `onToolCallCompleted`, `onToolCallFailed`, `onLLMCallStarting`, `onAgentStarting`, `onAgentCompleted`. It is installed via `handleEvents { }` (import `ai.koog.agents.features.eventHandler.feature.handleEvents`), accepted inside the trailing `installFeatures` lambda of the `AIAgent(...)` overload already used at `ai/KoogNutritionAgent.kt:181-188`, whose receiver is `GraphAIAgent.FeatureContext`. `ToolCallStartingContext` exposes `toolName: String` (non-null), plus `toolCallId`, `runId`, `toolArgs`. No dependency change is needed — the feature ships inside the umbrella artifact already declared, on the compile classpath via koog-agents' api variant.
 
 **Alternative rejected.** Write the plumbing against the documented names and fix it if it fails to compile.
 
-**Why it lost.** `openspec/config.yaml`'s design rule requires an unverified build-tooling assumption to be named and gated. The naming is also known to have moved across Koog releases (older lines used `onToolCall`/`onAgentFinished`), so "it compiles" is the only reliable check and it belongs in its own revertible group.
-
-**Consequence to call out.** The feature does not depend on the spike succeeding. `onUrlFetched` (`tools/AgentTools.kt:208-215`) is already wired and already fires per successful fetch, so the reading step — the one that actually varies during the long phase — ships either way. A negative spike result means fewer steps, recorded in the spike task, not an abandoned change.
+**Why it lost.** Before verification, `openspec/config.yaml`'s design rule required an unverified build-tooling assumption to be named and gated rather than assumed to compile. That verification is now done, so the plumbing proceeds directly against the confirmed names above.
 
 ### D7 — The estimating phase emits one step, not several
 
@@ -98,11 +96,10 @@ Above the seam, `runEstimate` (`ui/capture/MealCaptureViewModel.kt:277-316`) bra
 
 ## Risks / Trade-offs
 
-- **The spike may find different or missing member names.** Bounded by D6's fallback: the change still delivers the reading step from the already-wired hook.
 - **A callback invoked off the main thread.** Called out in D1; mitigated by routing every emission through the state holder's existing `update { }` path rather than assigning state directly.
 - **Rapid step changes could flicker.** A research loop can fetch several pages quickly, so the line may change faster than it can be read. Accepted: movement is itself the signal this change is buying, and the alternative (a minimum dwell time per step) would make the line lag behind reality.
 - **A grounded run is narrated much more richly than an ungrounded one.** With no Brave key, grounding is skipped entirely (`ai/KoogNutritionAgent.kt:101`) and only the preparing and calculating steps ever appear. That is honest — there genuinely are fewer steps — but it means the feature's value is uneven across configurations.
 
 ## Open Questions
 
-None. D6 converts the one unknown into a spike task with a defined negative outcome.
+None. D6's Koog event API is verified against the resolved artifact.

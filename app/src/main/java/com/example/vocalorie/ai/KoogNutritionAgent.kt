@@ -1,6 +1,7 @@
 package com.example.vocalorie.ai
 
 import ai.koog.agents.core.agent.AIAgent
+import ai.koog.agents.features.eventHandler.feature.handleEvents
 import ai.koog.http.client.ktor.KtorKoogHttpClient
 import ai.koog.prompt.dsl.prompt
 import ai.koog.prompt.executor.clients.ConnectionTimeoutConfig
@@ -19,6 +20,7 @@ import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.model.NutritionAgentResult
 import com.example.vocalorie.model.NutritionTotals
 import com.example.vocalorie.settings.ToolSettings
+import com.example.vocalorie.tools.BraveSearchTool
 import com.example.vocalorie.tools.HttpTextFetcher
 import com.example.vocalorie.tools.KtorHttpTextFetcher
 import com.example.vocalorie.tools.vocalorieToolRegistry
@@ -44,6 +46,7 @@ interface NutritionEstimator {
         query: String,
         toolSettings: ToolSettings = ToolSettings(),
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
+        onProgress: (EstimationProgress) -> Unit = {},
     ): NutritionEstimateOutcome
 }
 
@@ -73,13 +76,14 @@ class KoogNutritionAgent(
         query: String,
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment>,
+        onProgress: (EstimationProgress) -> Unit,
     ): NutritionEstimateOutcome = withContext(Dispatchers.IO) {
         runCatching {
             val trimmedKey = openAiApiKey.trim()
             val trimmedQuery = query.trim()
             if (trimmedKey.isEmpty()) throw IllegalArgumentException("Enter an OpenAI API key.")
             if (trimmedQuery.isEmpty()) throw IllegalArgumentException("Enter a nutrition query.")
-            runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments)
+            runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments, onProgress)
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
             throw NutritionAgentException(throwable.toUserMessage(), throwable.toDiagnosticString(), throwable)
@@ -91,6 +95,7 @@ class KoogNutritionAgent(
         query: String,
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
+        onProgress: (EstimationProgress) -> Unit = {},
     ): NutritionEstimateOutcome {
         val model = toolSettings.openAiModelChoice.model
         val outputStructure = JsonStructure.create<NutritionAgentResult>(
@@ -101,9 +106,10 @@ class KoogNutritionAgent(
         val groundingEnabled = toolSettings.hasBraveApiKey && toolSettings.maxResearchToolCalls > 0
         val fetchedUrls = newFetchedUrlSet()
         var groundingFailure: Throwable? = null
+        onProgress(EstimationProgress.Preparing)
         val researchNotes = if (groundingEnabled) {
             try {
-                runGroundingAgent(executor, model, query, toolSettings, fetchedUrls)
+                runGroundingAgent(executor, model, query, toolSettings, fetchedUrls, onProgress)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
@@ -146,6 +152,7 @@ class KoogNutritionAgent(
 
         // Bounded in time and retried on transient failures only, so an unresponsive request can
         // never pin the capture flow's loading state.
+        onProgress(EstimationProgress.CalculatingNutrition)
         val response = withBoundedRetry {
             withTimeoutOrNull(ESTIMATE_REQUEST_TIMEOUT_MS) {
                 executor.execute(prompt, model, emptyList())
@@ -168,6 +175,7 @@ class KoogNutritionAgent(
         query: String,
         toolSettings: ToolSettings,
         fetchedUrls: MutableSet<String>,
+        onProgress: (EstimationProgress) -> Unit,
     ): String {
         // Collect a URL only once web_fetch has actually retrieved it with a 2xx response,
         // so a guessed URL that 404s can never be treated as a real source.
@@ -175,7 +183,10 @@ class KoogNutritionAgent(
             settings = toolSettings,
             fetcher = httpTextFetcher,
             onUrlFetched = { fetchedUrl ->
-                normalizeSourceUrl(fetchedUrl)?.let { fetchedUrls.add(it) }
+                normalizeSourceUrl(fetchedUrl)?.let {
+                    fetchedUrls.add(it)
+                    onProgress(EstimationProgress.ReadingSource(it))
+                }
             },
         )
         val agent = AIAgent(
@@ -185,12 +196,19 @@ class KoogNutritionAgent(
             systemPrompt = RESEARCH_SYSTEM_PROMPT,
             temperature = 0.0,
             maxIterations = toolSettings.maxAgentIterations,
-        )
+        ) {
+            handleEvents {
+                onToolCallStarting { context ->
+                    if (context.toolName == BraveSearchTool.TOOL_NAME) onProgress(EstimationProgress.SearchingSources)
+                }
+            }
+        }
         val researchInput = buildString {
             append("Research real, concrete food-composition and nutrition pages for the foods in this meal query, ")
             append("then report the exact page URLs you fetched with the key nutrition values you found:\n")
             append(query)
         }
+        onProgress(EstimationProgress.SearchingSources)
         return agent.run(researchInput)
     }
 

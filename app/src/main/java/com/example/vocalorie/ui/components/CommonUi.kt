@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.example.vocalorie.ai.EstimationProgress
 import com.example.vocalorie.model.ConfidenceLevel
 import java.time.Instant
 import java.time.LocalDateTime
@@ -211,6 +212,20 @@ fun HeaderDropdownAction(
             menuContent()
         }
     }
+}
+
+/**
+ * User-facing wording for an in-flight estimate's current step.
+ *
+ * Wording lives only here (design D2 in the `narrate-estimation-progress` change) — the agent layer
+ * that produces [EstimationProgress] owns only which step it is in, never the copy. Kept outside any
+ * composable body so it stays JVM-testable.
+ */
+fun EstimationProgress.displayText(): String = when (this) {
+    EstimationProgress.Preparing -> "Preparing the estimate…"
+    EstimationProgress.SearchingSources -> "Looking for sources…"
+    is EstimationProgress.ReadingSource -> "Reading ${url.sourceDomainOrUrl()}…"
+    EstimationProgress.CalculatingNutrition -> "Computing nutrition values…"
 }
 
 @Composable
