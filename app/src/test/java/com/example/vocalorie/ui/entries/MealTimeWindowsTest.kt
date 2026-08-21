@@ -420,6 +420,54 @@ class MealTimeWindowsTest {
         needsHumanReview = false,
     )
 
+    @Test
+    fun dayOffsetAfterDayChangeKeepsTodayAtZero() {
+        assertEquals(0, dayOffsetAfterDayChange(offset = 0, daysPassed = 1))
+    }
+
+    @Test
+    fun dayOffsetAfterDayChangeShiftsAPastDayForwardByOneDayPassed() {
+        assertEquals(2, dayOffsetAfterDayChange(offset = 1, daysPassed = 1))
+    }
+
+    @Test
+    fun dayOffsetAfterDayChangeShiftsATomorrowOffsetBackToTodayAfterOneDayPassed() {
+        assertEquals(0, dayOffsetAfterDayChange(offset = -1, daysPassed = 1))
+    }
+
+    @Test
+    fun dayOffsetAfterDayChangeShiftsByMultipleDaysPassed() {
+        assertEquals(5, dayOffsetAfterDayChange(offset = 3, daysPassed = 2))
+    }
+
+    @Test
+    fun dayOffsetAfterDayChangeIsUnchangedWhenNoDaysHavePassed() {
+        assertEquals(3, dayOffsetAfterDayChange(offset = 3, daysPassed = 0))
+    }
+
+    @Test
+    fun durationUntilNextLocalMidnightAtMiddayIsTwelveHours() {
+        val midday = LocalDateTime.of(2026, 6, 30, 12, 0).atZone(zone).toInstant()
+
+        assertEquals(Duration.ofHours(12), durationUntilNextLocalMidnight(midday, zone))
+    }
+
+    @Test
+    fun durationUntilNextLocalMidnightASecondBeforeMidnightIsOneSecond() {
+        val almostMidnight = LocalDateTime.of(2026, 6, 30, 23, 59, 59).atZone(zone).toInstant()
+
+        assertEquals(Duration.ofSeconds(1), durationUntilNextLocalMidnight(almostMidnight, zone))
+    }
+
+    @Test
+    fun durationUntilNextLocalMidnightAccountsForALostSpringForwardHour() {
+        // 2026-03-29 is the Europe/London spring-forward day: clocks jump 01:00 -> 02:00, so this
+        // calendar day only has 23 real hours between its midnight and the next.
+        val startOfSpringForwardDay = LocalDateTime.of(2026, 3, 29, 0, 0).atZone(zone).toInstant()
+
+        assertEquals(Duration.ofHours(23), durationUntilNextLocalMidnight(startOfSpringForwardDay, zone))
+    }
+
     private fun activity(id: Long, createdAt: Instant) = SavedActivity(
         id = id,
         createdAtEpochMillis = createdAt.toEpochMilli(),

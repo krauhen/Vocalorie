@@ -38,25 +38,35 @@ class DayScoreTipsTest {
 
     @Test
     fun `a 60-point calorie loss outranks a 20-point fat loss`() {
-        // calories r = 1.17 -> adherence 40 (rank 24); fat r = 1.28 -> adherence 80 (rank 3).
-        val result = kinds(totals(calories = 2808.0, fat = 102.4))
+        // calories r = 1.17 -> adherence 40 (rank 24); fat r = 1.28 -> adherence 80 (rank 3); a protein
+        // gap (rank 23.7) drops the day's score below the tip threshold without disturbing the order.
+        val result = kinds(totals(calories = 2808.0, fat = 102.4, protein = 108.9))
 
-        assertEquals(listOf(DayScoreTipKind.CALORIES_OVER, DayScoreTipKind.FAT_OVER), result)
+        assertEquals(
+            listOf(DayScoreTipKind.CALORIES_OVER, DayScoreTipKind.PROTEIN_UNDER, DayScoreTipKind.FAT_OVER),
+            result,
+        )
     }
 
     @Test
     fun `an on-target component emits no tip`() {
-        val result = kinds(totals(protein = 100.0))
+        // protein r = 0.556 -> adherence 11 (rank 27); a far-over calorie day (rank 40) drops the score
+        // below the tip threshold while carbs and fat stay exactly on target and stay silent.
+        val result = kinds(totals(calories = 3050.0, protein = 100.0))
 
-        assertEquals(listOf(DayScoreTipKind.PROTEIN_UNDER), result)
+        assertEquals(listOf(DayScoreTipKind.CALORIES_FAR_OVER, DayScoreTipKind.PROTEIN_UNDER), result)
     }
 
     @Test
     fun `a carbs gap outranks a doubled sugar overage`() {
-        // carbs r = 0.4 -> adherence 0 (rank 15); sugar at 2x its 60 g limit docks the full 10.
-        val result = kinds(totals(carbs = 96.0, sugar = 120.0), localTime = evening)
+        // carbs r = 0.4 -> adherence 0 (rank 15); sugar at 2x its 60 g limit docks the full 10; a
+        // far-over calorie day (rank 40) drops the score below the tip threshold without reordering.
+        val result = kinds(totals(calories = 3120.0, carbs = 96.0, sugar = 120.0), localTime = evening)
 
-        assertEquals(listOf(DayScoreTipKind.CARBS_UNDER, DayScoreTipKind.SUGAR_OVER), result)
+        assertEquals(
+            listOf(DayScoreTipKind.CALORIES_FAR_OVER, DayScoreTipKind.CARBS_UNDER, DayScoreTipKind.SUGAR_OVER),
+            result,
+        )
     }
 
     @Test
@@ -74,7 +84,9 @@ class DayScoreTipsTest {
 
     @Test
     fun `the activity tip appears only when over budget with no activity logged`() {
-        val over = totals(calories = 3000.0)
+        // calories r = 1.25 and protein r = 0.5 both land on their zero points, dropping the score
+        // below the tip threshold so the activity tip's presence can be checked either way.
+        val over = totals(calories = 3000.0, protein = 90.0)
 
         assertTrue(DayScoreTipKind.NO_ACTIVITY_WHILE_OVER in kinds(over, hasLoggedActivity = false))
         assertFalse(DayScoreTipKind.NO_ACTIVITY_WHILE_OVER in kinds(over, hasLoggedActivity = true))
@@ -82,14 +94,16 @@ class DayScoreTipsTest {
     }
 
     @Test
-    fun `the activity tip sits directly below the calorie tip`() {
-        val result = kinds(totals(calories = 2808.0, fat = 102.4), hasLoggedActivity = false)
+    fun `the activity tip sits below the calorie tip`() {
+        // Same totals as the calorie-vs-fat test above: a protein gap (rank 23.7) drops the score
+        // below the tip threshold, and the capped top three keep the activity tip below the calories.
+        val result = kinds(totals(calories = 2808.0, fat = 102.4, protein = 108.9), hasLoggedActivity = false)
 
         assertEquals(
             listOf(
                 DayScoreTipKind.CALORIES_OVER,
+                DayScoreTipKind.PROTEIN_UNDER,
                 DayScoreTipKind.NO_ACTIVITY_WHILE_OVER,
-                DayScoreTipKind.FAT_OVER,
             ),
             result,
         )
@@ -171,5 +185,48 @@ class DayScoreTipsTest {
             ),
         )
         assertEquals(ruleTips, validateRewordedTips(ruleTips, listOf(valid[0], valid[1], "Too few words")))
+    }
+
+    @Test
+    fun `a day scoring exactly 50 emits no tips`() {
+        // calories r = 1.3 -> adherence 0; protein r = 0.8333 -> adherence 66.667 -> base = 0 + 20 + 15 + 15 = 50.
+        val day = totals(calories = 3120.0, protein = 150.0)
+
+        assertEquals(emptyList<DayScoreTipKind>(), kinds(day))
+    }
+
+    @Test
+    fun `a day scoring 49 shows ranked tips`() {
+        // calories r = 1.3 -> adherence 0; protein r = 0.8167 -> adherence 63.33 -> base = 0 + 19 + 15 + 15 = 49.
+        val day = totals(calories = 3120.0, protein = 147.0)
+
+        assertTrue(kinds(day).isNotEmpty())
+    }
+
+    @Test
+    fun `a seventies score with one band violation emits no tips`() {
+        // calories r = 1.18 -> adherence 35; protein, carbs and fat on target -> base = 14 + 30 + 15 + 15 = 74.
+        val day = totals(calories = 2832.0)
+
+        assertEquals(emptyList<DayScoreTipKind>(), kinds(day))
+    }
+
+    @Test
+    fun `six shortfalls yield only the three highest-ranked tips`() {
+        // calories (rank 40), protein (rank 30), carbs (rank 15), fat (rank 15), saturated fat (rank
+        // 10) and sugar (rank 10) all miss; the cap keeps only the top three, ties broken by rank order.
+        val day = totals(
+            calories = 3120.0,
+            protein = 90.0,
+            carbs = 96.0,
+            fat = 128.0,
+            saturatedFat = 60.0,
+            sugar = 130.0,
+        )
+
+        assertEquals(
+            listOf(DayScoreTipKind.CALORIES_FAR_OVER, DayScoreTipKind.PROTEIN_UNDER, DayScoreTipKind.CARBS_UNDER),
+            kinds(day),
+        )
     }
 }

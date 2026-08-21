@@ -74,6 +74,23 @@ data class MealCaloriesBucket(
     val caloriesKcal: Double,
 )
 
+/**
+ * Re-anchors a viewed-day [offset] after the calendar day has advanced by [daysPassed]. Offset 0
+ * (today) always stays 0 — it tracks "today" by definition. Any other offset shifts forward by the
+ * same number of days, so the calendar date it pointed at keeps being shown.
+ */
+fun dayOffsetAfterDayChange(offset: Int, daysPassed: Long): Int {
+    if (offset == 0) return 0
+    val shifted = offset.toLong() + daysPassed
+    return shifted.coerceIn(Int.MIN_VALUE.toLong(), Int.MAX_VALUE.toLong()).toInt()
+}
+
+/** Duration from [now] to the next local midnight in [zone], honoring DST transitions in between. */
+fun durationUntilNextLocalMidnight(now: Instant, zone: ZoneId): Duration {
+    val nextMidnight = LocalDate.ofInstant(now, zone).plusDays(1).atStartOfDay(zone).toInstant()
+    return Duration.between(now, nextMidnight)
+}
+
 fun selectedDayWindow(dayOffset: Int, now: Instant, zone: ZoneId): MealTimeWindow {
     val date = LocalDate.ofInstant(now, zone).minusDays(dayOffset.toLong())
 

@@ -27,6 +27,8 @@ import org.junit.Before
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * The capture flow's state holder, against in-memory doubles.
@@ -450,6 +452,56 @@ class MealCaptureViewModelTest {
         val after = viewModel.uiState.value
         assertEquals(Instant.ofEpochMilli(environment.nowMillis), after.now)
         assertEquals("only the clock may move", before, after.copy(now = before.now))
+    }
+
+    @Test
+    fun refreshingPastMidnightAtTodayOffsetKeepsTodaySelectedAndMovesNow() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val viewModel = environment.viewModel()
+        val zone = ZoneId.of("UTC")
+        val startOfTomorrow = LocalDate.ofInstant(Instant.ofEpochMilli(environment.nowMillis), zone)
+            .plusDays(1)
+            .atStartOfDay(zone)
+            .toInstant()
+        environment.nowMillis = startOfTomorrow.toEpochMilli() + 1_000L
+
+        viewModel.refreshNow()
+
+        assertEquals(0, viewModel.uiState.value.selectedDayOffset)
+        assertEquals(Instant.ofEpochMilli(environment.nowMillis), viewModel.uiState.value.now)
+    }
+
+    @Test
+    fun refreshingPastMidnightAtAPastDayOffsetShiftsItForwardToKeepTheSameCalendarDate() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val viewModel = environment.viewModel()
+        viewModel.selectDayOffset(1)
+        val zone = ZoneId.of("UTC")
+        val startOfTomorrow = LocalDate.ofInstant(Instant.ofEpochMilli(environment.nowMillis), zone)
+            .plusDays(1)
+            .atStartOfDay(zone)
+            .toInstant()
+        environment.nowMillis = startOfTomorrow.toEpochMilli() + 1_000L
+
+        viewModel.refreshNow()
+
+        assertEquals(2, viewModel.uiState.value.selectedDayOffset)
+    }
+
+    @Test
+    fun aSaveThatCrossesMidnightStampsTheEntryOnTheNewDay() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val viewModel = environment.viewModel()
+        val zone = ZoneId.of("UTC")
+        val startOfTomorrow = LocalDate.ofInstant(Instant.ofEpochMilli(environment.nowMillis), zone)
+            .plusDays(1)
+            .atStartOfDay(zone)
+            .toInstant()
+        environment.nowMillis = startOfTomorrow.toEpochMilli() + 1_000L
+
+        viewModel.saveNewMeal(mealDraft(query = "Apfel"))
+
+        assertEquals(environment.nowMillis, environment.data.mealDao.rows.single().createdAtEpochMillis)
     }
 
     @Test

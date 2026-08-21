@@ -2,6 +2,7 @@ package com.example.vocalorie.ui.entries.stats
 
 import com.example.vocalorie.model.NutritionGoals
 import java.time.LocalTime
+import kotlin.math.roundToInt
 
 /**
  * Actionable tips for today, ranked by how many score points each shortfall costs.
@@ -44,6 +45,12 @@ private val EAT_MORE_KINDS = setOf(
 /** At or after this local hour, the eat-more tips are suppressed. */
 internal val LATE_DAY_CUTOFF: LocalTime = LocalTime.of(21, 0)
 
+/** Below this rounded score, the day still has shortfalls worth surfacing as tips. */
+internal const val DAY_SCORE_TIP_THRESHOLD = 50
+
+/** At most this many ranked tips are ever returned. */
+internal const val MAX_DAY_SCORE_TIPS = 3
+
 /** The catalogue. One string per shortfall the score can express; each is 5-10 words. */
 internal val DAY_SCORE_TIP_TEXTS: Map<DayScoreTipKind, String> = mapOf(
     DayScoreTipKind.CALORIES_UNDER to "You're under budget — eat a bit more today.",
@@ -62,6 +69,9 @@ internal val DAY_SCORE_TIP_TEXTS: Map<DayScoreTipKind, String> = mapOf(
 
 private data class RankedTip(val kind: DayScoreTipKind, val rank: Double)
 
+/** Whether the day's score is low enough to still warrant tips. */
+private fun tipsAllowed(score: Double?): Boolean = score != null && score.roundToInt() < DAY_SCORE_TIP_THRESHOLD
+
 /**
  * The day's shortfalls, highest leverage first.
  *
@@ -77,6 +87,8 @@ fun dayScoreTips(
     localTime: LocalTime,
 ): List<DayScoreTip> {
     if (!totals.hasData()) return emptyList()
+    val score = nutritionScore(totals, goals, activityBurnedKcal)
+    if (!tipsAllowed(score)) return emptyList()
 
     val targets = goals.macroTargets()
     val calorieTarget = goals.calorieGoalKcal + 0.5 * activityBurnedKcal
@@ -104,6 +116,7 @@ fun dayScoreTips(
     return ranked
         .filterNot { late && it.kind in EAT_MORE_KINDS }
         .sortedByDescending { it.rank }
+        .take(MAX_DAY_SCORE_TIPS)
         .map { DayScoreTip(it.kind, DAY_SCORE_TIP_TEXTS.getValue(it.kind)) }
 }
 

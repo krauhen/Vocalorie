@@ -66,6 +66,8 @@ fun MealEntriesScreen(
     onAddActivity: () -> Unit = {},
     onOpenSettings: () -> Unit,
     onRefresh: suspend () -> Unit = {},
+    now: Instant,
+    zone: ZoneId,
     selectedDayOffset: Int = 0,
     onSelectedDayOffsetChange: (Int) -> Unit = {},
     baseCaloriesBurned: Int = 2400,
@@ -81,14 +83,8 @@ fun MealEntriesScreen(
     var selectedStatsRangeName by rememberSaveable { mutableStateOf(MealStatsRange.LAST_30_DAYS.name) }
     var selectedStatsModeName by rememberSaveable { mutableStateOf(MealStatsWindowMode.SINCE_MIDNIGHT.name) }
     var customRollingStatsMinutes by rememberSaveable { mutableIntStateOf(DEFAULT_ROLLING_STATS_MINUTES) }
-    // `now` drives future/past classification. It advances whenever entries reload (LaunchedEffect
-    // below) and on an explicit pull-to-refresh, so a passed-time entry stops being crossed out
-    // without requiring a write. Previously it was memoized against `meals`, so it only moved on a save.
-    var now by remember { mutableStateOf(Instant.now()) }
-    LaunchedEffect(meals, activities) { now = Instant.now() }
     val refreshScope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
-    val zone = remember { ZoneId.systemDefault() }
     val visibleMeals = remember(meals, selectedDayOffset, now, zone) { filterMealsForDay(meals, selectedDayOffset, now, zone) }
     val visibleActivities = remember(activities, selectedDayOffset, now, zone) { filterActivitiesForDay(activities, selectedDayOffset, now, zone) }
     val dayWindow = remember(selectedDayOffset, now, zone) { selectedDayWindow(selectedDayOffset, now, zone) }
@@ -127,7 +123,6 @@ fun MealEntriesScreen(
         PullToRefreshBox(
             isRefreshing = isRefreshing,
             onRefresh = {
-                now = Instant.now()
                 refreshScope.launch {
                     isRefreshing = true
                     try {

@@ -145,10 +145,6 @@ private fun EnergySummaryRow(label: String, value: String, valueColor: androidx.
     }
 }
 
-/** Top three tips visible while collapsed; the rest only on tap. */
-private const val COLLAPSED_TIP_COUNT = 3
-private const val EXPANDED_TIP_COUNT = 5
-
 /**
  * The actionable tips under the day score, rotating one at a time.
  *
@@ -168,7 +164,7 @@ internal fun DayScoreTipsSection(
 
     var expanded by remember { mutableStateOf(false) }
     var index by remember(tips) { mutableIntStateOf(0) }
-    val rotating = tips.size.coerceAtMost(COLLAPSED_TIP_COUNT)
+    val rotating = tips.size
 
     LaunchedEffect(tips, rotationSeconds, expanded, rotating) {
         if (expanded || rotationSeconds <= 0 || rotating < 2) return@LaunchedEffect
@@ -184,7 +180,7 @@ internal fun DayScoreTipsSection(
     ) {
         if (expanded) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                tips.take(EXPANDED_TIP_COUNT).forEach { tip -> TipText(tip.text) }
+                tips.forEach { tip -> TipText(tip.text) }
             }
         } else {
             Crossfade(targetState = tips[index.coerceIn(0, tips.lastIndex)], modifier = Modifier.weight(1f), label = "dayScoreTip") { tip ->

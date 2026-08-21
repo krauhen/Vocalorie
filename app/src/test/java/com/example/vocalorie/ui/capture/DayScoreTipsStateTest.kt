@@ -5,6 +5,7 @@ import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.settings.NutritionSettingsStore
+import com.example.vocalorie.ui.entries.stats.DayScoreTipKind
 import java.time.Instant
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +71,30 @@ class DayScoreTipsStateTest {
         viewModel.selectDayOffset(1)
 
         assertEquals(emptyList<Any>(), viewModel.uiState.value.dayScoreTips)
+    }
+
+    @Test
+    fun crossingMidnightRecomputesTipsForTheNewDay() = runTest {
+        val environment = environment()
+        environment.mealRepository.saveReviewedMeal(mealDraft("Apfel", caloriesKcal = "40"), middayMillis)
+        val viewModel = environment.viewModel(zone = ZoneId.of("UTC"))
+        val beforeMidnight = viewModel.uiState.value.dayScoreTips
+        assertTrue(beforeMidnight.any { it.kind == DayScoreTipKind.CALORIES_UNDER })
+
+        val startOfNextDay = Instant.ofEpochMilli(middayMillis).plusSeconds(12 * 60 * 60 + 1)
+        environment.nowMillis = startOfNextDay.toEpochMilli()
+        environment.mealRepository.saveReviewedMeal(mealDraft("Torte", caloriesKcal = "8000"), environment.nowMillis)
+        viewModel.refreshNow()
+
+        val afterMidnight = viewModel.uiState.value.dayScoreTips
+        assertTrue(
+            "a new day's tips must reflect that day's own meals, not carry the previous day's kinds",
+            afterMidnight.map { it.kind } != beforeMidnight.map { it.kind },
+        )
+        assertFalse(
+            "the far-over-budget new day must not still show the previous day's under-budget tip",
+            afterMidnight.any { it.kind == DayScoreTipKind.CALORIES_UNDER },
+        )
     }
 
     // --- Rotation interval -------------------------------------------------------------------

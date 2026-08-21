@@ -4,12 +4,16 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vocalorie.AppContainer
 import com.example.vocalorie.data.searchSavedMeals
@@ -20,9 +24,12 @@ import com.example.vocalorie.ui.capture.MealCaptureViewModel
 import com.example.vocalorie.ui.entries.ActivityEntryOverlay
 import com.example.vocalorie.ui.entries.MealEntriesScreen
 import com.example.vocalorie.ui.entries.MealEntryOverlay
+import com.example.vocalorie.ui.entries.durationUntilNextLocalMidnight
 import com.example.vocalorie.ui.settings.SettingsEvent
 import com.example.vocalorie.ui.settings.SettingsScreen
 import com.example.vocalorie.ui.voice.VoiceInputOverlay
+import kotlinx.coroutines.delay
+import java.time.Duration
 
 /**
  * The capture flow's UI: it renders [com.example.vocalorie.ui.capture.MealCaptureUiState] and emits
@@ -47,6 +54,24 @@ fun MealCaptureScreen(
 
     // The surrounding theme follows the selected tab's palette and every appearance edit.
     LaunchedEffect(state.activeThemeColors) { onActiveThemeColorsChange(state.activeThemeColors) }
+
+    // Coming back to the app after any length of backgrounding should never show a stale "Today".
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshNow()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Re-arms itself every time `now` moves: sleeps until just past the next local midnight, then
+    // refreshes the clock, which naturally re-keys this effect for the following day.
+    LaunchedEffect(state.now) {
+        val margin = Duration.ofSeconds(2)
+        delay(durationUntilNextLocalMidnight(state.now, viewModel.zone).plus(margin).toMillis())
+        viewModel.refreshNow()
+    }
 
     val exportBackupLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -84,6 +109,8 @@ fun MealCaptureScreen(
             onAddActivity = { viewModel.openActivityEditor(null) },
             onOpenSettings = viewModel::openSettings,
             onRefresh = { viewModel.refreshNow() },
+            now = state.now,
+            zone = viewModel.zone,
             selectedDayOffset = state.selectedDayOffset,
             onSelectedDayOffsetChange = viewModel::selectDayOffset,
             baseCaloriesBurned = state.baseCaloriesBurned,

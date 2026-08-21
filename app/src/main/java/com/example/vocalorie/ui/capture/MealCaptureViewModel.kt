@@ -32,6 +32,7 @@ import com.example.vocalorie.model.validate
 import com.example.vocalorie.settings.NutritionSettingsStore
 import com.example.vocalorie.settings.ToolSettings
 import com.example.vocalorie.ui.entries.EntriesTab
+import com.example.vocalorie.ui.entries.dayOffsetAfterDayChange
 import com.example.vocalorie.ui.entries.filterActivitiesForDay
 import com.example.vocalorie.ui.entries.filterMealsForDay
 import com.example.vocalorie.ui.entries.selectedDayTimestampMillis
@@ -49,8 +50,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 
 /**
  * The capture flow's state holder: it owns [MealCaptureUiState] and every operation that changes it.
@@ -82,7 +85,7 @@ class MealCaptureViewModel(
     initialSettings: ThemeSettingsSnapshot,
     initialRuntimeApiKey: String = "",
     private val clock: () -> Instant = Instant::now,
-    private val zone: ZoneId = ZoneId.systemDefault(),
+    val zone: ZoneId = ZoneId.systemDefault(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -162,9 +165,19 @@ class MealCaptureViewModel(
         advanceNow()
     }
 
+    // Also called by `newEntryTimestampMillis()`, so a save crossing midnight re-anchors the
+    // selected-day offset too — that is intentional: the entry lands on the day it was actually
+    // saved on rather than on a stale offset computed before midnight.
     private fun advanceNow(): Instant {
+        val previous = state.now
         val reading = clock()
-        update { it.copy(now = reading) }
+        val daysPassed = ChronoUnit.DAYS.between(LocalDate.ofInstant(previous, zone), LocalDate.ofInstant(reading, zone))
+        update {
+            it.copy(
+                now = reading,
+                selectedDayOffset = if (daysPassed == 0L) it.selectedDayOffset else dayOffsetAfterDayChange(it.selectedDayOffset, daysPassed),
+            )
+        }
         return reading
     }
 
