@@ -27,7 +27,7 @@ None; all six captured defects have been promoted.
 
 Their backlog files are removed; the OpenSpec change is the live record.
 
-- B1 (quantity vs amount) and B2 (scaling ignores quantity) → `openspec/changes/2026-08-20-fix-item-quantity-scaling`
-- B3 (tips show too eagerly) and B4 ("Today" stale across midnight) → `openspec/changes/2026-08-20-gate-day-score-tips-and-live-day-rollover`
-- B5 (cache keeps duplicate meals) → `openspec/changes/2026-08-20-fix-cache-key-normalization`
-- B6 (visual clipping and mixed-language date labels) → `openspec/changes/2026-08-20-fix-entries-visual-clipping-and-locale`
+- B1 (quantity vs amount) and B2 (scaling ignores quantity) → `openspec/changes/archive/2026-08-20-fix-item-quantity-scaling`
+- B3 (tips show too eagerly) and B4 ("Today" stale across midnight) → `openspec/changes/archive/2026-08-21-2026-08-20-gate-day-score-tips-and-live-day-rollover`
+- B5 (cache keeps duplicate meals) → `openspec/changes/archive/2026-08-20-fix-cache-key-normalization`
+- B6 (visual clipping and mixed-language date labels) → `openspec/changes/archive/2026-08-20-fix-entries-visual-clipping-and-locale`

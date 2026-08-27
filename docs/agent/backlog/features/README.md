@@ -30,8 +30,8 @@ second source of truth about it.
 
 Their backlog files are removed; the OpenSpec change is the live record.
 
-- F1 — narrate estimation progress → `openspec/changes/2026-08-20-narrate-estimation-progress`
-- F4 — date-picker widget in edit mode → `openspec/changes/2026-08-20-date-time-picker-in-entry-editors`
+- F1 — narrate estimation progress → `openspec/changes/archive/2026-08-21-2026-08-20-narrate-estimation-progress`
+- F4 — date-picker widget in edit mode → `openspec/changes/archive/2026-08-21-2026-08-20-date-time-picker-in-entry-editors`
 
 ## Completed audits
 

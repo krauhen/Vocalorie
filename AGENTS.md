@@ -31,7 +31,7 @@ Canonical verification commands plus the three binding test rules — pure-JVM u
 **Skip if:** the task is documentation-only with no code to verify.
 
 ### `docs/agent/guidance/setup.md`
-Local setup — required SDK levels, the debug build and install commands, known validation devices, and the rule against committing local configuration. Tags: `setup, gradle, sdk, build, secrets, devices`.
+Local setup — required Android SDK levels, the debug build and install commands, the mandatory database pull before any install, known validation devices, and the rule against committing local configuration. Tags: `setup, gradle, sdk, build, secrets, devices, data-safety`.
 **Read when:** building, installing, or running the app on a device or emulator.
 **Skip if:** you are not building or installing.
 
