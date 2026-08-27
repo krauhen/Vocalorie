@@ -7,7 +7,7 @@ tags: [testing, gradle, verification, jvm, room-migrations]
 
 ## Verification commands
 
-This file is the canonical source for Vocalorie's verification commands. `AGENTS.md` is a router and does not restate them; if any other document disagrees with this file, this file wins.
+This file is the SSOT (Single Source of Truth) for Vocalorie's verification commands: if any other document disagrees with this file, this file wins. `AGENTS.md` is a router and does not restate them.
 
 After any change:
 
@@ -28,4 +28,4 @@ Buildability (`:app:assembleDebug`) is a separate check from product validation 
 
 1. **`src/test` is pure JVM.** No network call, no real API key, no machine-specific path, no billable request, no `local.properties` read. A test that needs any of those is a live harness: it stays `@Ignore`d with its reason stated in the annotation, and it is run manually (see `KoogNutritionAgentLiveHarnessTest`).
 2. **Test behaviour, not source text.** The copy-contract pattern — asserting production source read through `java.io.File` — is **deprecated but tolerated** for existing tests. Do not add more. Any test that greps source MUST resolve the file by filename via `testsupport/ProductionSource.kt` and fail loudly on 0 or more than 1 match, never by a hardcoded path that silently yields empty content and passes vacuously.
-3. **A pure function extracted from a composable ships with its tests in the same commit.** Extraction is only worth doing because it makes the rule testable; landing it untested spends the cost and skips the benefit. Inject the seam (`HttpTextFetcher`, `TableChangeSource`, `clock: () -> Instant`) so the test stays on the JVM.
+3. **A pure function extracted from a composable ships with its tests in the same commit.** Extraction is only worth doing because it makes the rule testable; landing it untested spends the cost and skips the benefit. Inject a Test Seam (Feathers) — `HttpTextFetcher`, `TableChangeSource`, `clock: () -> Instant` — so the test stays on the JVM.
