@@ -17,7 +17,7 @@ tags: [coding, architecture, kotlin, compose, layering, migrations]
 
 ## Architecture rules
 
-These are the rules the `improve-performance-and-code-quality` change established. They are enforced by review, not by tooling. A rule change here must update the matching ADR in `docs/arc42.md` in the same commit.
+These are the rules the `improve-performance-and-code-quality` change established. They are enforced by review, not by tooling.
 
 1. **Layering is one-directional: UI → state holder → repository → DAO.** No `Context` above the repository boundary, and no DAO reference above it either. `AppContainer` builds the graph; `MealCaptureViewModel` holds capture-flow state; `data/repository/` owns dispatching, mapping and transactions. The repository — not the DAO — is the seam everything above depends on.
 2. **Composables render state and emit events.** No business logic inside an argument lambda. A rule that decides something (`NutritionGoals.parse`, `EditableActivityDraft.validate`, `planEstimate`) is a pure function outside the composable and outside the state holder, so it is testable without either.

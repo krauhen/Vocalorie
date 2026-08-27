@@ -36,8 +36,8 @@ Local setup — required Android SDK levels, the debug build and install command
 **Skip if:** you are not building or installing.
 
 ### `docs/agent/guidance/workflow.md`
-How work is sequenced — keeping architecture rules and ADRs in step, recording deliberate omissions as accepted debt, and where current project status is specified. Tags: `workflow, adr, arc42, accepted-debt, process`.
-**Read when:** changing an architectural rule, an ADR, or project documentation.
+How work is sequenced — where the binding architecture rules live, recording deliberate omissions as accepted debt, and where current project status is specified. Tags: `workflow, architecture-rules, accepted-debt, process`.
+**Read when:** changing an architectural rule or project documentation.
 **Skip if:** the change alters no rule and no architectural decision.
 
 ### `docs/agent/backlog/` — `features/`, `bugs/`

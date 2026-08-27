@@ -1,5 +1,5 @@
 ---
-description: Per-task-type reading lists — which guidance, spec and source files to open for each kind of Vocalorie change, from Android code to Room migrations to ADR updates.
+description: Per-task-type reading lists — which guidance, spec and source files to open for each kind of Vocalorie change, from Android code to Room migrations to architecture-rule updates.
 tags: [routing, task-types, navigation, source-map]
 ---
 
@@ -17,7 +17,6 @@ Use this list to decide which files to read for a given task type. The always-re
 ## State holder, layering, or dependency-wiring change
 
 - `docs/agent/guidance/coding.md` (the layering rule)
-- `docs/arc42.md` ADR-6 and ADR-8
 - `app/src/main/java/com/example/vocalorie/AppContainer.kt`
 - `app/src/main/java/com/example/vocalorie/ui/capture/`
 - `app/src/main/java/com/example/vocalorie/data/repository/`
@@ -42,7 +41,6 @@ Use this list to decide which files to read for a given task type. The always-re
 
 - `app/src/main/java/com/example/vocalorie/tools/AgentTools.kt`
 - `app/src/main/java/com/example/vocalorie/settings/`
-- `docs/arc42.md` ADR-7 (real-only tools; ADR-4's mock model is superseded)
 - `docs/agent/guidance/coding.md`
 
 ## Voice input or gallery-image attachment
@@ -65,10 +63,9 @@ Use this list to decide which files to read for a given task type. The always-re
 - Relevant files under `docs/agent/backlog/bugs/`.
 - `docs/agent/guidance/workflow.md`
 
-## Architecture documentation or ADR change
+## Architecture rule change
 
-- `docs/arc42.md`
-- `docs/agent/guidance/coding.md` (rules and ADRs must agree)
+- `docs/agent/guidance/coding.md` (the binding architecture rules)
 - `docs/agent/guidance/workflow.md`
 
 ## Documentation-only work

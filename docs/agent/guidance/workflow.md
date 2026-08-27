@@ -1,6 +1,6 @@
 ---
-description: How Vocalorie work is sequenced — keeping architecture rules and ADRs in step, recording deliberate omissions as accepted debt, and where current project status is specified.
-tags: [workflow, adr, arc42, accepted-debt, process]
+description: How Vocalorie work is sequenced — where the architecture rules live, recording deliberate omissions as accepted debt, and where current project status is specified.
+tags: [workflow, architecture-rules, accepted-debt, process]
 ---
 
 # Workflow guidance
@@ -9,12 +9,12 @@ tags: [workflow, adr, arc42, accepted-debt, process]
 
 The universal safety boundaries live in `docs/agent/hard-rules.md` and apply to every task. Read them there; they are not repeated here.
 
-## Keeping rules and architecture in step
+## Keeping the architecture rules coherent
 
-A change to an architectural rule updates `docs/agent/guidance/` **and** the matching ADR in `docs/arc42.md` in the same commit. A rule with no ADR, or an ADR the guidance contradicts, is a defect — supersede the older statement explicitly rather than leaving both standing.
+`docs/agent/guidance/coding.md` is the single source of truth for the binding architecture rules; there is no separate architecture document. Two rules that contradict each other are a defect — supersede the older statement explicitly in the same commit rather than leaving both standing.
 
-Something deliberately not done belongs in the `docs/arc42.md` §11.1 accepted-debt table with a one-line reason, so a later audit does not re-raise it.
+Something deliberately not done belongs in `docs/agent/backlog/` with a one-line reason, so a later audit does not re-raise it.
 
 ## Current project status
 
-Vocalorie is a working Android/Jetpack Compose app. Required behaviour is specified in `openspec/specs/`; architecture and decisions in `docs/arc42.md`. Read the relevant capability spec before changing behaviour it covers.
+Vocalorie is a working Android/Jetpack Compose app. Required behaviour is specified in `openspec/specs/`; the architecture rules in `docs/agent/guidance/coding.md`. Read the relevant capability spec before changing behaviour it covers.

@@ -7,7 +7,7 @@ tags: [orientation, project, architecture, documentation-map, conventions]
 
 This directory contains repository-specific context for agents working on **Vocalorie**.
 
-Vocalorie is a personal Android nutrition-tracking app that turns voice, photo or typed meal input into a structured nutrition estimate via an LLM. Required behaviour lives in `openspec/specs/`; architecture and its ADRs live in `docs/arc42.md`. This directory holds the operating rules and the project's own accumulated knowledge.
+Vocalorie is a personal Android nutrition-tracking app that turns voice, photo or typed meal input into a structured nutrition estimate via an LLM. Required behaviour lives in `openspec/specs/`; the binding architecture rules live in `docs/agent/guidance/coding.md`. This directory holds the operating rules and the project's own accumulated knowledge.
 
 ## Project
 
@@ -27,10 +27,9 @@ Current implementation, read from actual source:
 
 ## Documentation areas
 
-Two documentation areas sit outside `docs/agent/` and are part of task routing:
+One documentation area sits outside `docs/agent/` and is part of task routing:
 
 - `openspec/` — the spec-driven change workflow. `openspec/specs/<capability>/spec.md` states required behaviour; `openspec/changes/<id>/` holds an in-flight proposal, design and tasks. Read the relevant capability spec before changing behaviour it covers.
-- `docs/arc42.md` — architecture documentation: constraints, building blocks, the ADRs, and the §11.1 accepted-debt table. Read it before an architectural change; an architectural rule change updates `docs/agent/guidance/` **and** the matching ADR in the same commit.
 
 ## Directory structure
 
