@@ -20,3 +20,11 @@ sealed class EstimationProgress {
     /** The estimating call, including any retries, is in flight. */
     data object CalculatingNutrition : EstimationProgress()
 }
+
+/** One recorded step in the estimation progress history. */
+data class EstimationStep(
+    val turn: Int,
+    val maxTurns: Int,
+    val description: String,
+    val command: String?,
+)

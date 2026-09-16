@@ -87,8 +87,6 @@ class NutritionSettingsStore(context: Context) {
          */
         const val PREFS_NAME: String = ThemeSettingsStore.PREFS_NAME
 
-        private const val KEY_BASE_CALORIES_BURNED = "base_calories_burned"
-
         /** Legacy `Float` slot, kept readable/writable so a downgrade does not lose the setting. */
         private const val KEY_KCAL_PER_STEP_LEGACY_FLOAT = "kcal_per_step"
         private const val KEY_KCAL_PER_STEP_DOUBLE = "kcal_per_step_double"
@@ -100,6 +98,7 @@ class NutritionSettingsStore(context: Context) {
         private const val KEY_TIP_ROTATION_SECONDS = "tip_rotation_seconds"
 
         private const val DEFAULT_BASE_CALORIES_BURNED = 2400
+        private const val KEY_BASE_CALORIES_BURNED = "base_calories_burned"
         const val DEFAULT_TIP_ROTATION_SECONDS: Int = 5
 
         /** Accepted rotation intervals, alongside `0` for "off". Below 2 s a crossfade is unreadable. */

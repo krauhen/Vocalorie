@@ -60,11 +60,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.ui.components.EditableMealEditor
 import com.example.vocalorie.ui.components.ErrorCard
 import com.example.vocalorie.ui.components.LoadingRow
+import com.example.vocalorie.ui.components.CollapsibleProgressDetails
 import com.example.vocalorie.ui.components.displayText
 import com.example.vocalorie.ui.voice.toGalleryImageAttachment
 import kotlinx.coroutines.Dispatchers
@@ -91,6 +93,7 @@ fun VoiceInputOverlay(
     onSearchMealClick: (SavedMeal) -> Unit,
     resetSignal: Int,
     onEstimate: () -> Unit,
+    onCancelEstimate: () -> Unit,
     onReset: () -> Unit,
     onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
@@ -98,6 +101,7 @@ fun VoiceInputOverlay(
     groundingWarning: String? = null,
     /** The current step of an in-flight estimate, or null before/after one runs. */
     estimationProgress: EstimationProgress? = null,
+    progressHistory: List<EstimationStep> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     var showSheet by remember { mutableStateOf(false) }
@@ -137,11 +141,13 @@ fun VoiceInputOverlay(
                 onSearchMealClick = onSearchMealClick,
                 resetSignal = resetSignal,
                 onEstimate = onEstimate,
+                onCancelEstimate = onCancelEstimate,
                 onReset = onReset,
                 onImagesChange = onImagesChange,
                 onSave = onSave,
                 groundingWarning = groundingWarning,
                 estimationProgress = estimationProgress,
+                progressHistory = progressHistory,
                 enabled = !isLoading && !isSaving,
             )
         }
@@ -166,12 +172,14 @@ private fun VoiceSheetContent(
     onSearchMealClick: (SavedMeal) -> Unit,
     resetSignal: Int,
     onEstimate: () -> Unit,
+    onCancelEstimate: () -> Unit,
     onReset: () -> Unit,
     onImagesChange: (List<GalleryImageAttachment>) -> Unit,
     onSave: (EditableMealDraft) -> Unit,
     enabled: Boolean,
     groundingWarning: String? = null,
     estimationProgress: EstimationProgress? = null,
+    progressHistory: List<EstimationStep> = emptyList(),
 ) {
     val canReset = query.isNotBlank() || draft != null || attachedImages.isNotEmpty()
     val canSave = draft != null
@@ -239,8 +247,14 @@ private fun VoiceSheetContent(
             resetSignal = resetSignal,
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onEstimate, enabled = enabled, modifier = Modifier.weight(1f)) {
-                Text(if (error == null) "Estimate" else "Retry")
+            if (isLoading) {
+                Button(onClick = onCancelEstimate, modifier = Modifier.weight(1f)) {
+                    Text("Cancel")
+                }
+            } else {
+                Button(onClick = onEstimate, enabled = enabled, modifier = Modifier.weight(1f)) {
+                    Text(if (error == null) "Estimate" else "Retry")
+                }
             }
             OutlinedButton(onClick = onReset, enabled = enabled && canReset, modifier = Modifier.weight(1f)) {
                 Text("Reset")
@@ -263,7 +277,17 @@ private fun VoiceSheetContent(
                 }
             }
         }
-        if (isLoading) LoadingRow(estimationProgress?.displayText() ?: "Estimating…")
+        if (isLoading) {
+            LoadingRow(estimationProgress?.displayText() ?: "Estimating…")
+            if (progressHistory.isNotEmpty()) {
+                var expanded by remember { mutableStateOf(false) }
+                CollapsibleProgressDetails(
+                    steps = progressHistory,
+                    isExpanded = expanded,
+                    onToggleExpanded = { expanded = !expanded },
+                )
+            }
+        }
         if (isSaving) LoadingRow("Saving locally…")
         saveMessage?.let { Text(it, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
         groundingWarning?.let {

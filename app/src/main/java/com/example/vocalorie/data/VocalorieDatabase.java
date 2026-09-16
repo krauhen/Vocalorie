@@ -8,6 +8,11 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.example.vocalorie.data.ActivityEntity;
+import com.example.vocalorie.data.CachedItemEntity;
+import com.example.vocalorie.data.CachedMealEntity;
+import com.example.vocalorie.data.MealEntity;
+
 @Database(
     entities = {MealEntity.class, ActivityEntity.class, CachedMealEntity.class, CachedItemEntity.class},
     version = 11,

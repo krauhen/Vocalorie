@@ -8,6 +8,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.vocalorie.AppContainer
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.ai.KoogNutritionAgent
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.ai.NutritionEstimator
@@ -110,6 +111,10 @@ class MealCaptureViewModel(
      * duplicate — and a billable — request.
      */
     private var estimateJob: Job? = null
+
+    fun cancelEstimate() {
+        estimateJob?.cancel()
+    }
 
     init {
         viewModelScope.launch {
@@ -288,7 +293,7 @@ class MealCaptureViewModel(
     }
 
     private suspend fun runEstimate(request: EstimateRequest) {
-        update { it.copy(isLoading = true) }
+        update { it.copy(isLoading = true, progressHistory = emptyList()) }
         try {
             val keyForEstimate = secretRepository.openAiApiKey() ?: state.runtimeApiKey
             if (keyForEstimate.isBlank()) {
@@ -303,6 +308,7 @@ class MealCaptureViewModel(
                 toolSettings = settingsForEstimate,
                 imageAttachments = request.imageAttachments,
                 onProgress = { step -> update { it.copy(estimationProgress = step) } },
+                onStep = { step -> update { it.copy(progressHistory = it.progressHistory + step) } },
             )
             val estimated = outcome.result.toEditableDraft()
                 .copy(query = request.finalDraftQuery.ifBlank { request.requestQuery })
@@ -317,7 +323,8 @@ class MealCaptureViewModel(
                 )
             }
         } catch (cancellation: CancellationException) {
-            throw cancellation
+            // Explicit cancellation (e.g. user tapped Cancel) — clean exit without error.
+            return
         } catch (throwable: NutritionAgentException) {
             update { current ->
                 current.copy(
@@ -336,7 +343,7 @@ class MealCaptureViewModel(
                 )
             }
         } finally {
-            update { it.copy(isLoading = false, estimationProgress = null, pendingEstimateRequest = null) }
+            update { it.copy(isLoading = false, estimationProgress = null, progressHistory = emptyList(), pendingEstimateRequest = null) }
         }
     }
 

@@ -1,6 +1,7 @@
 package com.example.vocalorie.ui.capture
 
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.ai.NutritionEstimateOutcome
 import com.example.vocalorie.ai.NutritionEstimator
 import com.example.vocalorie.ai.TipRewordingAgent
@@ -135,17 +136,22 @@ internal class FakeNutritionEstimator : NutritionEstimator {
     /** Emitted through `onProgress`, in order, before the estimate awaits [gate]. */
     var progressToEmit: List<EstimationProgress> = emptyList()
 
+    /** Emitted through `onStep`, in order, before the estimate awaits [gate]. */
+    var stepsToEmit: List<EstimationStep> = emptyList()
+
     override suspend fun estimate(
         openAiApiKey: String,
         query: String,
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment>,
         onProgress: (EstimationProgress) -> Unit,
+        onStep: (EstimationStep) -> Unit,
     ): NutritionEstimateOutcome {
         requests += query
         imageCounts += imageAttachments.size
         keys += openAiApiKey
         progressToEmit.forEach(onProgress)
+        stepsToEmit.forEach(onStep)
         gate?.await()
         failWith?.let { throw it }
         return outcome

@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.model.ConfidenceLevel
 import java.time.Instant
 import java.time.LocalDateTime
@@ -246,6 +247,59 @@ fun LoadingRow(message: String? = null) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(message ?: "Working${".".repeat(dotCount)}")
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+fun CollapsibleProgressDetails(
+    steps: List<EstimationStep>,
+    isExpanded: Boolean,
+    onToggleExpanded: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Progress (${steps.size} step${if (steps.size == 1) "" else "s"})",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                TextButton(onClick = onToggleExpanded) {
+                    Text(if (isExpanded) "Hide" else "Show")
+                }
+            }
+            if (isExpanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    steps.forEach { step ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Text(
+                                text = "Turn ${step.turn}/${step.maxTurns}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = step.command ?: step.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(2f),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

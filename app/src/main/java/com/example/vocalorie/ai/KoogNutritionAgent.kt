@@ -47,6 +47,7 @@ interface NutritionEstimator {
         toolSettings: ToolSettings = ToolSettings(),
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
         onProgress: (EstimationProgress) -> Unit = {},
+        onStep: (EstimationStep) -> Unit = {},
     ): NutritionEstimateOutcome
 }
 
@@ -77,13 +78,14 @@ class KoogNutritionAgent(
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment>,
         onProgress: (EstimationProgress) -> Unit,
+        onStep: (EstimationStep) -> Unit,
     ): NutritionEstimateOutcome = withContext(Dispatchers.IO) {
         runCatching {
             val trimmedKey = openAiApiKey.trim()
             val trimmedQuery = query.trim()
             if (trimmedKey.isEmpty()) throw IllegalArgumentException("Enter an OpenAI API key.")
             if (trimmedQuery.isEmpty()) throw IllegalArgumentException("Enter a nutrition query.")
-            runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments, onProgress)
+            runKoog(trimmedKey, trimmedQuery, toolSettings, imageAttachments, onProgress, onStep)
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
             throw NutritionAgentException(throwable.toUserMessage(), throwable.toDiagnosticString(), throwable)
@@ -96,6 +98,7 @@ class KoogNutritionAgent(
         toolSettings: ToolSettings,
         imageAttachments: List<GalleryImageAttachment> = emptyList(),
         onProgress: (EstimationProgress) -> Unit = {},
+        onStep: (EstimationStep) -> Unit = {},
     ): NutritionEstimateOutcome {
         val model = toolSettings.openAiModelChoice.model
         val outputStructure = JsonStructure.create<NutritionAgentResult>(
@@ -109,7 +112,7 @@ class KoogNutritionAgent(
         onProgress(EstimationProgress.Preparing)
         val researchNotes = if (groundingEnabled) {
             try {
-                runGroundingAgent(executor, model, query, toolSettings, fetchedUrls, onProgress)
+                runGroundingAgent(executor, model, query, toolSettings, fetchedUrls, onProgress, onStep)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (throwable: Throwable) {
@@ -176,6 +179,7 @@ class KoogNutritionAgent(
         toolSettings: ToolSettings,
         fetchedUrls: MutableSet<String>,
         onProgress: (EstimationProgress) -> Unit,
+        onStep: (EstimationStep) -> Unit,
     ): String {
         // Collect a URL only once web_fetch has actually retrieved it with a 2xx response,
         // so a guessed URL that 404s can never be treated as a real source.
@@ -189,6 +193,8 @@ class KoogNutritionAgent(
                 }
             },
         )
+        var turn = 0
+        val maxTurns = toolSettings.maxAgentIterations
         val agent = AIAgent(
             promptExecutor = executor,
             llmModel = model,
@@ -199,6 +205,9 @@ class KoogNutritionAgent(
         ) {
             handleEvents {
                 onToolCallStarting { context ->
+                    turn += 1
+                    val command = context.toolName + (context.toolArgs?.let { ": $it" } ?: "")
+                    onStep(EstimationStep(turn, maxTurns, context.toolName, command))
                     if (context.toolName == BraveSearchTool.TOOL_NAME) onProgress(EstimationProgress.SearchingSources)
                 }
             }
@@ -209,6 +218,7 @@ class KoogNutritionAgent(
             append(query)
         }
         onProgress(EstimationProgress.SearchingSources)
+        onStep(EstimationStep(1, maxTurns, "Searching sources", "brave_search"))
         return agent.run(researchInput)
     }
 

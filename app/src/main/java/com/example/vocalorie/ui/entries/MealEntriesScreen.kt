@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.example.vocalorie.model.SavedMeal
 import com.example.vocalorie.model.NutritionGoals
 import com.example.vocalorie.model.SavedActivity
+import com.example.vocalorie.ui.entries.MealBundle
+import com.example.vocalorie.ui.entries.bundleMealsByTime
 import com.example.vocalorie.ui.entries.stats.DailyNutritionTotals
 import com.example.vocalorie.ui.entries.stats.MealStatsOverview
 import com.example.vocalorie.ui.entries.stats.MealStatsRange
@@ -86,6 +88,7 @@ fun MealEntriesScreen(
     val refreshScope = rememberCoroutineScope()
     var isRefreshing by remember { mutableStateOf(false) }
     val visibleMeals = remember(meals, selectedDayOffset, now, zone) { filterMealsForDay(meals, selectedDayOffset, now, zone) }
+    val visibleMealBundles = remember(visibleMeals) { bundleMealsByTime(visibleMeals) }
     val visibleActivities = remember(activities, selectedDayOffset, now, zone) { filterActivitiesForDay(activities, selectedDayOffset, now, zone) }
     val dayWindow = remember(selectedDayOffset, now, zone) { selectedDayWindow(selectedDayOffset, now, zone) }
     val selectedStatsMode = remember(selectedStatsModeName) {
@@ -216,7 +219,14 @@ fun MealEntriesScreen(
                 EntriesTab.MEALS -> if (visibleMeals.isEmpty()) {
                     item { EmptyEntriesCard(hasSavedEntries = meals.isNotEmpty(), emptyText = "No saved meals yet") }
                 } else {
-                    items(visibleMeals, key = { it.id }) { meal -> MealEntryRow(meal = meal, now = now, onClick = { onOpenMeal(meal) }) }
+                    items(visibleMealBundles, key = { it.id }) { bundle ->
+                        if (bundle.isMultiEntry) {
+                            MealBundleView(bundle = bundle, now = now, onOpenMeal = onOpenMeal)
+                        } else {
+                            val meal = bundle.meals.first()
+                            MealEntryRow(meal = meal, now = now, onClick = { onOpenMeal(meal) })
+                        }
+                    }
                 }
                 EntriesTab.ACTIVITIES -> if (visibleActivities.isEmpty()) {
                     item { EmptyEntriesCard(hasSavedEntries = activities.isNotEmpty(), emptyText = "No saved activities yet") }

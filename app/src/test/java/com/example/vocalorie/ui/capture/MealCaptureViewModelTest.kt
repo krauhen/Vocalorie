@@ -1,6 +1,9 @@
 package com.example.vocalorie.ui.capture
 
+import ai.koog.prompt.message.AttachmentContent
+import ai.koog.prompt.message.AttachmentSource
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.ai.NutritionAgentException
 import com.example.vocalorie.ai.NutritionEstimateOutcome
 import com.example.vocalorie.model.ActivityType
@@ -10,6 +13,7 @@ import com.example.vocalorie.model.EditableFoodItem
 import com.example.vocalorie.model.EditableMealDraft
 import com.example.vocalorie.model.MealCategory
 import com.example.vocalorie.ui.entries.EntriesTab
+import com.example.vocalorie.ui.voice.GalleryImageAttachment
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -262,6 +266,105 @@ class MealCaptureViewModelTest {
         assertEquals("Sources could not be checked.", state.groundingWarning)
         assertEquals("brave: 429", state.diagnostic)
         assertNotNull("the ungrounded estimate is still usable", state.draft)
+    }
+
+    // --- Cancellation ------------------------------------------------------------------------
+
+    @Test
+    fun cancelEstimateCancelsTheActiveJobAndClearsLoading() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel")
+        viewModel.onEstimate()
+
+        assertTrue("estimate must be in flight", viewModel.uiState.value.isLoading)
+
+        viewModel.cancelEstimate()
+
+        assertFalse("loading must clear after cancel", viewModel.uiState.value.isLoading)
+        assertNull("progress must clear after cancel", viewModel.uiState.value.estimationProgress)
+        assertTrue("progressHistory must clear after cancel", viewModel.uiState.value.progressHistory.isEmpty())
+        gate.complete(Unit)
+    }
+
+    @Test
+    fun cancelEstimatePreservesQueryAndAttachedImages() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel mit Käse")
+        viewModel.onImagesChange(
+            listOf(
+                GalleryImageAttachment(
+                    label = "photo.jpg",
+                    image = AttachmentSource.Image(
+                        content = AttachmentContent.Binary.Bytes(byteArrayOf(1, 2, 3)),
+                        format = "jpg",
+                        mimeType = "image/jpeg",
+                        fileName = "photo.jpg",
+                    ),
+                ),
+            ),
+        )
+        viewModel.onEstimate()
+
+        viewModel.cancelEstimate()
+
+        val state = viewModel.uiState.value
+        assertEquals("Apfel mit Käse", state.query)
+        assertEquals(1, state.attachedImages.size)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun cancelEstimateDoesNotRegisterAnError() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel")
+        viewModel.onEstimate()
+
+        viewModel.cancelEstimate()
+
+        assertNull("cancellation must not set error", viewModel.uiState.value.error)
+        assertNull("cancellation must not set diagnostic", viewModel.uiState.value.diagnostic)
+    }
+
+    // --- Progress history -------------------------------------------------------------------
+
+    @Test
+    fun progressEventsAppendToHistoryInChronologicalOrder() = runTest {
+        val environment = FakeCaptureEnvironment()
+        val gate = CompletableDeferred<Unit>()
+        environment.estimator.gate = gate
+        environment.estimator.progressToEmit = listOf(
+            EstimationProgress.Preparing,
+            EstimationProgress.SearchingSources,
+            EstimationProgress.ReadingSource("https://fddb.info/db/de/lebensmittel/apfel/"),
+            EstimationProgress.CalculatingNutrition,
+        )
+        environment.estimator.stepsToEmit = listOf(
+            EstimationStep(1, 5, "Searching sources", "brave_search"),
+            EstimationStep(2, 5, "Reading source", "web_fetch: https://fddb.info/db/de/lebensmittel/apfel/"),
+        )
+        val viewModel = environment.viewModel(initialRuntimeApiKey = "sk-test")
+        viewModel.onQueryChange("Apfel")
+
+        viewModel.onEstimate()
+
+        val history = viewModel.uiState.value.progressHistory
+        assertEquals(2, history.size)
+        assertEquals(1, history[0].turn)
+        assertEquals(5, history[0].maxTurns)
+        assertEquals("brave_search", history[0].command)
+        assertEquals(2, history[1].turn)
+        assertEquals("web_fetch: https://fddb.info/db/de/lebensmittel/apfel/", history[1].command)
+        gate.complete(Unit)
+        assertTrue("history clears after success", viewModel.uiState.value.progressHistory.isEmpty())
     }
 
     // --- Reset --------------------------------------------------------------------------------

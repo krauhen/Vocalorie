@@ -6,9 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.Cookie
@@ -175,6 +178,104 @@ internal fun MealEntryRow(meal: SavedMeal, now: Instant, onClick: () -> Unit) {
         }
         if (isFuture) {
             Box(modifier = Modifier.matchParentSize().futureEntryHighlight(true, style.borderColor))
+        }
+    }
+}
+
+@Composable
+internal fun MealBundleHeader(bundle: MealBundle, modifier: Modifier = Modifier) {
+    val macros = macroColors()
+    Column(modifier = modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "${bundle.meals.size} meal${if (bundle.meals.size == 1) "" else "s"}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "·",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = "${formatDate(bundle.startTimeEpochMillis)} – ${formatDate(bundle.endTimeEpochMillis)}",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = bundle.totals.caloriesKcal.formatEnergy(),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = macros.fat, fontWeight = FontWeight.SemiBold)) {
+                        append("Fat ${bundle.totals.fatG.formatNullable()}g")
+                    }
+                    append(" · ")
+                    withStyle(SpanStyle(color = macros.carbs, fontWeight = FontWeight.SemiBold)) {
+                        append("Carbs ${bundle.totals.carbsG.formatNullable()}g")
+                    }
+                    append(" · ")
+                    withStyle(SpanStyle(color = macros.protein, fontWeight = FontWeight.SemiBold)) {
+                        append("Protein ${bundle.totals.proteinG.formatNullable()}g")
+                    }
+                    append(" · Amount ${bundle.totals.amountGml.formatNullable()}g/ml")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+internal fun Modifier.mealBundleBracket(): Modifier {
+    val accent = MaterialTheme.colorScheme.primary
+    return drawBehind {
+        val bracketWidth = 3.dp.toPx()
+        val capRadius = bracketWidth
+        val topCenter = Offset(capRadius, capRadius)
+        val bottomCenter = Offset(capRadius, size.height - capRadius)
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(0f, capRadius),
+            size = Size(bracketWidth, size.height - 2 * capRadius),
+            cornerRadius = CornerRadius(bracketWidth / 2, bracketWidth / 2),
+        )
+        drawCircle(color = accent, radius = capRadius, center = topCenter)
+        drawCircle(color = accent, radius = capRadius, center = bottomCenter)
+    }
+}
+
+@Composable
+internal fun MealBundleBracketContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier.mealBundleBracket().padding(start = 12.dp)) {
+        content()
+    }
+}
+
+@Composable
+internal fun MealBundleView(
+    bundle: MealBundle,
+    now: Instant,
+    onOpenMeal: (SavedMeal) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        MealBundleBracketContainer {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                MealBundleHeader(bundle = bundle)
+                Spacer(modifier = Modifier.height(4.dp))
+                bundle.meals.forEach { meal ->
+                    MealEntryRow(meal = meal, now = now, onClick = { onOpenMeal(meal) })
+                }
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.vocalorie.ui.capture
 
 import com.example.vocalorie.ai.EstimationProgress
+import com.example.vocalorie.ai.EstimationStep
 import com.example.vocalorie.data.CachedMealMatch
 import com.example.vocalorie.model.EditableActivityDraft
 import com.example.vocalorie.model.EditableMealDraft
@@ -58,6 +59,7 @@ data class MealCaptureUiState(
     val isLoading: Boolean = false,
     /** The current step of an in-flight estimate, purely descriptive; [isLoading] is the gate. */
     val estimationProgress: EstimationProgress? = null,
+    val progressHistory: List<EstimationStep> = emptyList(),
     val isSaving: Boolean = false,
     val error: String? = null,
     val diagnostic: String? = null,
